@@ -29,11 +29,13 @@ import haxe.macro.Expr;
 class Macro {
 
 	var p : Position;
+	var pInfos : {min:Int, max:Int, file:String};
 	var binops : Map<String,Binop>;
 	var unops : Map<String,Unop>;
 
 	public function new(pos) {
 		p = pos;
+		pInfos = haxe.macro.PositionTools.getInfos(p);
 		binops = new Map();
 		unops = new Map();
 		for( c in Type.getEnumConstructs(Binop) ) {
@@ -140,6 +142,13 @@ class Macro {
 		};
 	}
 
+	function getPos(e : hscript.Expr): Position {
+		#if hscriptPos
+		return haxe.macro.PositionTools.make({ file : pInfos.file, min : pInfos.min + e.pmin, max : pInfos.min + e.pmax });
+		#else
+		return p;
+		#end
+	}
 	public function convert( e : hscript.Expr ) : Expr {
 		return { expr : switch( #if hscriptPos e.e #else e #end ) {
 			case EConst(c):
@@ -175,7 +184,7 @@ class Macro {
 			case EDoWhile(c, e):
 				EWhile(convert(c), convert(e), false);
 			case EFor(v, it, efor):
-				var p = #if (!macro && hscriptPos) { file : e.origin, min : e.pmin, max : e.pmax } #else p #end;
+				var p = getPos(e);
 				EFor({ expr : EBinop(OpIn,{ expr : EConst(CIdent(v)), pos : p },convert(it)), pos : p }, convert(efor));
 			case EForGen(it, efor):
 				EFor(convert(it), convert(efor));
@@ -221,13 +230,12 @@ class Macro {
 			case ESwitch(e, cases, edef):
 				ESwitch(convert(e), [for( c in cases ) { values : [for( v in c.values ) convert(v)], expr : convert(c.expr) } ], edef == null ? null : convert(edef));
 			case EMeta(m, params, esub):
-				var mpos = #if (!macro && hscriptPos) { file : e.origin, min : e.pmin, max : e.pmax } #else p #end;
-				EMeta({ name : m, params : params == null ? [] : [for( p in params ) convert(p)], pos : mpos }, convert(esub));
+				EMeta({ name : m, params : params == null ? [] : [for( p in params ) convert(p)], pos : getPos(e) }, convert(esub));
 			case ECheckType(e, t):
 				ECheckType(convert(e), convertType(t));
 			case ECast(e, t):
 				ECast(convert(e), t == null ? null : convertType(t));
-		}, pos : #if (!macro && hscriptPos) { file : e.origin, min : e.pmin, max : e.pmax } #else p #end }
+		}, pos : getPos(e) }
 	}
 
 	public function typeEncode( t : ComplexType ) : Expr.CType {
