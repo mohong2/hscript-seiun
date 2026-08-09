@@ -31,6 +31,13 @@
 - [x] getRedirects / setRedirects / @:bypassAccessor
 - [x] Runtime preprocessor (`#if` / `#elseif` / `#else` / `#end`, `!` / `&&` / `||`,
   nested blocks and `elseif` chains — see the README for details)
+- [x] String interpolation (`"$var"`, `"${expr}"`, `"$$"` escape)
+- [x] `cast` (checked `cast (x, T)` + unchecked `cast x`)
+- [x] Generic constructor type parameters (`new Array<Int>()`, nested generics)
+- [x] Object shorthand (`{x}`), destructuring declarations (`var [a,b] = arr;`)
+- [x] Spread calls (`f(...arr)`) and rest args (`function f(a, ...rest)`)
+- [x] Static members via the class name (`M.f()`, `S.x = 9`)
+- [x] Switch guards with variable binding (`case v if (v > 3):`)
 
 ---
 

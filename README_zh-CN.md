@@ -42,6 +42,23 @@
 - 脚本类静态变量**跨实例真正共享**（共享 `staticVariables` 引用）
 - 类字段赋值同时同步 locals 与变量表，`obj.field` 始终读到最新值
 
+### Haxe 语法补充
+
+- **字符串插值**：`"v=$x"`、`"v=${x + 2}"`、`"${obj.field}"`；`$$` 是转义美元符，与 Haxe 一致
+- **`cast`**：`cast (x, T)`（目标可解析为真实类时做类型校验，不匹配抛 "Cast error"）
+  与 `cast x`（不校验）
+- **`untyped`**：解析并直接执行包裹的表达式
+- **泛型构造参数**：`new Array<Int>()`、`new Array<Array<Int>>()`（类型参数按编译期概念丢弃）
+- **对象简写**（Haxe 4）：`{x}` 等价于 `{x: x}`
+- **解构声明**（Haxe 4）：`var [a, b] = arr;` 与 `var {x, y} = obj;`
+- **展开调用与 rest 参数**：`f(...arr)` 和 `function f(a, ...rest)`
+- **类名直接访问静态成员**：`M.staticMethod()`、`S.staticVar`、`S.staticVar = 9`，
+  静态字段在类声明时只求值一次
+- **switch 守卫**：`case v if (v > 3):` 会把 `v` 绑定为被 switch 的值
+
+测试过程中还修了：局部变量 `++`/`--` 不写回、可选参数默认值、`?.` 空安全调用、
+无 `-D hscriptPos` 时错误被吞的问题。
+
 ## 运行时预处理（`#if`）
 
 脚本内置 Haxe 风格的**条件执行**（注意：是脚本运行时解析，不是编译期条件编译）：

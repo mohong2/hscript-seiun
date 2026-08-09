@@ -84,10 +84,93 @@ class TestMain {
 		testPrinter();
 		testKeyValueFor();
 		testPreprocessor();
+		testNewSyntax();
 
 		trace('== RESULT: $passed passed, $failed failed ==');
 		if (failed > 0)
 			Sys.exit(1);
+	}
+
+	static function testNewSyntax() {
+		// ── string interpolation ──
+		var interp = run('var x = 42; var s = "v=$$x";');
+		eq(interp.variables.get("s"), "v=42", "interp: $var");
+
+		interp = run('var x = 40; var s = "v=$${x + 2}";');
+		eq(interp.variables.get("s"), "v=42", "interp: ${expr}");
+
+		interp = run('var o = {a: 5}; var s = "$${o.a}";');
+		eq(interp.variables.get("s"), "5", "interp: ${field}");
+
+		interp = run('var r = "cost: $$$$5";');
+		eq(interp.variables.get("r"), "cost: $5", "interp: escaped dollar");
+
+		interp = run('function f(x) return "got: $$x"; var r = f(3);');
+		eq(interp.variables.get("r"), "got: 3", "interp: inside function");
+
+		// ── cast ──
+		interp = run('var x = "42"; var y = cast(x, String);');
+		eq(interp.variables.get("y"), "42", "cast: (x, T)");
+
+		interp = run('var x = "42"; var y = cast x;');
+		eq(interp.variables.get("y"), "42", "cast: unchecked form");
+
+		var castError = false;
+		run('var x = 42; var y = cast(x, String);', function(i:Interp) {
+			i.errorHandler = function(e) castError = true;
+		});
+		check(castError, "cast: type mismatch raises an error");
+
+		// ── untyped (compile-time hint, evaluates the wrapped expression) ──
+		interp = run('untyped (1 + 2); var r = 3;');
+		eq(interp.variables.get("r"), 3, "untyped: passes through");
+
+		// ── generic constructor type parameters ──
+		interp = run('var a = new Array<Array<Int>>(); a.push([1]); var r = a.length;');
+		eq(interp.variables.get("r"), 1, "generic new: nested type params");
+
+		// ── object shorthand ──
+		interp = run('var x = 5; var o = {x, y: 2}; var r = o.x + o.y;');
+		eq(interp.variables.get("r"), 7, "object shorthand: {x}");
+
+		// ── destructuring declarations ──
+		interp = run('var arr = [1,2]; var [a,b] = arr; var c = a + b;');
+		eq(interp.variables.get("c"), 3, "destructure: array");
+
+		interp = run('var obj = {x: 1, y: 2}; var {x, y} = obj; var c = x + y;');
+		eq(interp.variables.get("c"), 3, "destructure: object");
+
+		interp = run('function f() { var [a,b] = [4,5]; return a + b; } var r = f();');
+		eq(interp.variables.get("r"), 9, "destructure: inside function keeps scope");
+
+		// ── spread call / rest args ──
+		interp = run('function f(a, b) return a + b; var arr = [1,2]; var r = f(...arr);');
+		eq(interp.variables.get("r"), 3, "spread: f(...arr)");
+
+		interp = run('function f(a, ...rest) return a + rest.length; var r = f(1,2,3);');
+		eq(interp.variables.get("r"), 3, "rest args: function f(a, ...rest)");
+
+		// ── static members via the class name ──
+		interp = run('class M { public static function add(a, b) return a + b; } var r = M.add(1, 2);');
+		eq(interp.variables.get("r"), 3, "static: method call via class name");
+
+		interp = run('class S { public static var n:Int = 7; } var r = S.n;');
+		eq(interp.variables.get("r"), 7, "static: var read via class name");
+
+		interp = run('class S { public static var n:Int = 7; } S.n = 9; var r = S.n;');
+		eq(interp.variables.get("r"), 9, "static: var write via class name");
+
+		// ── switch guards bind the case variable ──
+		interp = run('var x = 5; var r = switch(x) { case v if (v > 3): "big"; default: "small"; };');
+		eq(interp.variables.get("r"), "big", "switch guard: case v if (v > 3)");
+
+		// ── null-safe call ──
+		interp = run('var o = null; var r = o?.f();');
+		eq(interp.variables.get("r"), null, "?. call on null returns null");
+
+		// ── optional args with default values ──
+		interp = run('function f(?a:Int, b:Int = 2) return a == null ? b : a + b; var r = f();');
+		eq(interp.variables.get("r"), 2, "optional args: default value applied");
 	}
 
 	static function touchAll() {

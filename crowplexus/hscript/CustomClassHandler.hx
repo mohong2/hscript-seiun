@@ -21,7 +21,7 @@ using StringTools;
  * `new Foo(...)` in scripts resolves `Foo` (via `Interp.customClasses`) to an
  * instance of this class and calls `hnew(args)`.
  */
-class CustomClassHandler implements IHScriptCustomConstructor {
+class CustomClassHandler implements IHScriptCustomConstructor implements IHScriptCustomBehaviour {
 	public static var staticHandler = new StaticHandler();
 
 	public var ogInterp:Interp;
@@ -29,6 +29,8 @@ class CustomClassHandler implements IHScriptCustomConstructor {
 	public var fields:Array<Expr>;
 	public var extend:String;
 	public var interfaces:Array<String>;
+	/** Static members evaluated once at class declaration (Haxe semantics). */
+	public var staticFields:Map<String, Dynamic> = new Map();
 
 	public function new(ogInterp:Interp, name:String, fields:Array<Expr>, ?extend:String, ?interfaces:Array<String>) {
 		this.ogInterp = ogInterp;
@@ -36,6 +38,19 @@ class CustomClassHandler implements IHScriptCustomConstructor {
 		this.fields = fields;
 		this.extend = extend;
 		this.interfaces = interfaces == null ? [] : interfaces;
+	}
+
+	public function hget(name:String):Dynamic {
+		if (staticFields.exists(name))
+			return staticFields.get(name);
+		return Reflect.field(this, name);
+	}
+
+	public function hset(name:String, val:Dynamic):Dynamic {
+		staticFields.set(name, val);
+		if (ogInterp.staticVariables.exists(name))
+			ogInterp.staticVariables.set(name, val);
+		return val;
 	}
 
 	public function hnew(args:Array<Dynamic>):Dynamic {

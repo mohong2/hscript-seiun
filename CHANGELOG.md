@@ -1,3 +1,22 @@
+# 1.1.0 — Haxe syntax additions
+
+- String interpolation: `"$var"`, `"${expr}"`, `"${obj.field}"`, `$$` escape.
+- `cast` in both forms: checked `cast (x, T)` and unchecked `cast x`.
+- `untyped` pass-through, generic constructor type parameters
+  (`new Array<Int>()`), object shorthand (`{x}`).
+- Destructuring declarations: `var [a, b] = arr;`, `var {x, y} = obj;`
+  (including inside functions).
+- Spread calls (`f(...arr)`) and rest arguments (`function f(a, ...rest)`).
+- Static members accessible through the class name (`M.f()`, `S.x = 9`);
+  static fields are evaluated once at class declaration.
+- Switch guards bind the case variable (`case v if (v > 3):`).
+- Fixed: `++`/`--` not writing back to local variables (upstream iris bug),
+  optional-argument default values, `?.` null-safe calls, and errors being
+  swallowed as "Cannot call null" without `-D hscriptPos`.
+- Test suite grew from 48 to 70 assertions.
+
+---
+
 # 1.0.0 — hscript-seiun
 
 - Merged hscript-iris 1.1.3, hscript-improved and hscript-plus into one drop-in

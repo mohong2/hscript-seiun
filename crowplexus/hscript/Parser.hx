@@ -46,6 +46,8 @@ enum Token {
 	TMeta(s: String);
 	TPrepro(s: String);
 	TQuestionDot;
+	// interpolated string literal: parts are String chunks and Expr pieces
+	TInterp(parts: Array<Dynamic>);
 }
 
 #if hscriptPos
@@ -79,6 +81,12 @@ class Parser {
 		allows to check for #if / #else in code
 	**/
 	public var preprocessorValues: Map<String, Dynamic> = new Map();
+	/**
+	 * Set by `readString` when a string literal contains `$` interpolation;
+	 * the tokenizer then returns `TInterp(parts)` instead of a plain CString.
+	 * Parts are alternating String chunks and parsed Expr pieces.
+	 */
+	var interpParts: Array<Dynamic> = null;
 
 	/**
 		Compatibility alias for the historical (misspelled) iris field name.
@@ -369,6 +377,32 @@ class Parser {
 		if (!expr(e).match(EIgnore(_)))
 			exprs.push(e);
 
+		// destructuring declarations (`var [a, b] = arr;`) desugar into an
+		// EBlock of plain EVars; splice them into the statement list so the
+		// variables are declared in the enclosing scope, not a synthetic block
+		if (expr(e).match(EBlock(_))) {
+			var inner = Tools.expr(e);
+			var list:Array<Expr> = null;
+			switch (inner) {
+				case EBlock(l): list = l;
+				default:
+			}
+			if (list != null && list.length > 0) {
+				var isDestr = false;
+				switch (Tools.expr(list[0])) {
+					case EVar(n, _, _, _, _, _):
+						isDestr = StringTools.startsWith(n, "__destr_");
+					default:
+				}
+				if (isDestr) {
+					exprs.pop();
+					for (x in list)
+						exprs.push(x);
+					e = list[list.length - 1];
+				}
+			}
+		}
+
 		var tk = token();
 		// this is a hack to support var a,b,c; with a single EVar
 		while (tk == TComma && e != null && expr(e).match(EVar(_))) {
@@ -402,15 +436,26 @@ class Parser {
 						case CString(s): id = s;
 						default: unexpected(tk);
 					}
-				case TBrClose:
-					break;
-				default:
-					unexpected(tk);
-					break;
-			}
-			ensure(TDoubleDot);
+			case TBrClose:
+				break;
+			default:
+				unexpected(tk);
+				break;
+		}
+		var tk2 = token();
+		if (Type.enumEq(tk2, TDoubleDot)) {
+			// `key: value` — the `:` is consumed here
 			fl.push({name: id, e: parseExpr()});
-			tk = token();
+		} else {
+			// `key` followed by `,` or `}` — Haxe 4 shorthand `{x}` means `{x: x}`;
+			// leave the separator for the trailing switch below
+			push(tk2);
+			if (id != null)
+				fl.push({name: id, e: mk(EIdent(id))});
+			else
+				unexpected(tk2);
+		}
+		tk = token();
 			switch (tk) {
 				case TBrClose:
 					break;
@@ -432,6 +477,19 @@ class Parser {
 				var e = parseStructure(id);
 				if (e == null)
 					e = mk(EIdent(id));
+				return parseExprNext(e);
+			case TInterp(parts):
+				// `"a$x${y + 1}"` → EConst("a") + EIdent(x) + EConst(...) chain
+				var e:Expr = null;
+				for (p in parts) {
+					var pe:Expr = Std.isOfType(p, String) ? mk(EConst(CString(p))) : p;
+					if (e == null)
+						e = pe;
+					else
+						e = mk(EBinop("+", e, pe));
+				}
+				if (e == null)
+					e = mk(EConst(CString("")));
 				return parseExprNext(e);
 			case TConst(c):
 				return parseExprNext(mk(EConst(c)));
@@ -479,7 +537,8 @@ class Parser {
 						push(tk2);
 						push(tk);
 						switch (tk2) {
-							case TDoubleDot:
+							case TDoubleDot, TComma, TBrClose:
+								// `{a: 1}` regular field, `{a}` / `{a, b}` Haxe 4 shorthand
 								return parseExprNext(parseObject(p1));
 							default:
 						}
@@ -723,8 +782,48 @@ class Parser {
 					unexpected(TId("dynamic"));
 				parseStructure("function");
 			case "var", "final":
-				var ident = getIdent();
+				var isConst = id == "final";
 				var tk = token();
+				if (Type.enumEq(tk, TBkOpen) || Type.enumEq(tk, TBrOpen)) {
+					// destructuring declaration (Haxe 4):
+					//   var [a, b] = arr;   → tmp = arr; var a = tmp[0]; var b = tmp[1];
+					//   var {x, y} = obj;   → tmp = obj; var x = tmp.x; var y = tmp.y;
+					var isArray = Type.enumEq(tk, TBkOpen);
+					var names:Array<String> = [];
+					while (true) {
+						var t2 = token();
+						switch (t2) {
+							case TId(n):
+								names.push(n);
+							case TComma:
+							case TBkClose | TBrClose:
+								break;
+							default:
+								unexpected(t2);
+								break;
+						}
+						if (Type.enumEq(t2, isArray ? TBkClose : TBrClose))
+							break;
+					}
+					ensureToken(TOp("="));
+					var value = parseExpr();
+					var tmp = "__destr_" + (uid++);
+					var exprs = [mk(EVar(tmp, null, value, isConst, nextIsPublic, nextIsStatic), p1)];
+					var index = 0;
+					for (n in names) {
+						var access:Expr = isArray
+							? mk(EArray(mk(EIdent(tmp)), mk(EConst(CInt(index)))), p1)
+							: mk(EField(mk(EIdent(tmp)), n, false), p1);
+						exprs.push(mk(EVar(n, null, access, isConst, nextIsPublic, nextIsStatic), p1));
+						index++;
+					}
+					nextIsPublic = false;
+					nextIsStatic = false;
+					return mk(EBlock(exprs), p1);
+				}
+				push(tk);
+				var ident = getIdent();
+				tk = token();
 				var t = null;
 				if (tk == TDoubleDot && allowTypes) {
 					t = parseType();
@@ -797,16 +896,67 @@ class Parser {
 							a.push(getIdent());
 						case TPOpen:
 							break;
+						case TOp("<"):
+							// generic type params start right after the class path
+							push(tk);
+							break;
 						default:
 							unexpected(tk);
 							break;
 					}
+				}
+				var tk = token();
+				if (Type.enumEq(tk, TOp("<"))) {
+					// generic type parameters (`new Array<Int>()`) are a
+					// compile-time concept — parse and discard them
+					var depth = 1;
+					while (depth > 0) {
+						var t2 = token();
+						switch (t2) {
+							case TOp(op) if (op.charCodeAt(0) == "<".code):
+								var opens = 0;
+								while (opens < op.length && op.charCodeAt(opens) == "<".code)
+									opens++;
+								depth += opens;
+							case TOp(op) if (op.charCodeAt(0) == ">".code):
+								var closes = 0;
+								while (closes < op.length && op.charCodeAt(closes) == ">".code)
+									closes++;
+								depth -= closes;
+							case TEof:
+								unexpected(t2);
+								break;
+							default:
+						}
+					}
+					tk = token(); // the consumed `(` of the argument list
+					if (!Type.enumEq(tk, TPOpen))
+						unexpected(tk);
+				} else {
+					// no generics: tk is the first argument (or the closing `)`)
+					push(tk);
 				}
 				var args = parseExprList(TPClose);
 				mk(ENew(a.join("."), args), p1);
 			case "throw":
 				var e = parseExpr();
 				mk(EThrow(e), p1, pmax(e));
+			case "cast":
+				var tk = token();
+				if (Type.enumEq(tk, TPOpen)) {
+					// checked cast: `cast (expr, Type)`
+					var e = parseExpr();
+					ensure(TComma);
+					var t = parseType();
+					ensure(TPClose);
+					return mk(ECheckType(e, t), p1, pmax(e));
+				}
+				// unchecked cast: `cast expr` — identity in the interpreter
+				push(tk);
+				return parseExpr();
+			case "untyped":
+				// compile-time hint only: evaluate the wrapped expression
+				return parseExpr();
 			case "try":
 				var e = parseExpr();
 				ensureToken(TId("catch"));
@@ -1168,10 +1318,13 @@ class Parser {
 		if (tk != TPClose) {
 			var done = false;
 			while (!done) {
-				var name = null, opt = false;
+				var name = null, opt = false, rest = false;
 				switch (tk) {
 					case TQuestion:
 						opt = true;
+						tk = token();
+					case TOp("..."):
+						rest = true;
 						tk = token();
 					default:
 				}
@@ -1182,7 +1335,7 @@ class Parser {
 						unexpected(tk);
 						break;
 				}
-				var arg: Argument = {name: name};
+				var arg: Argument = {name: name, rest: rest};
 				args.push(arg);
 				if (opt)
 					arg.opt = true;
@@ -1413,7 +1566,16 @@ class Parser {
 			return args;
 		push(tk);
 		while (true) {
-			args.push(parseExpr());
+			// spread argument: `f(...arr)` (Haxe 4)
+			var spread = false;
+			var tk0 = token();
+			if (Type.enumEq(tk0, TOp("..."))) {
+				spread = true;
+			} else {
+				push(tk0);
+			}
+			var arg = parseExpr();
+			args.push(spread ? mk(EUnop("...", false, arg)) : arg);
 			tk = token();
 			switch (tk) {
 				case TComma:
@@ -1648,8 +1810,19 @@ class Parser {
 		#if hscriptPos
 		var p1 = readPos - 1;
 		#end
+		// interpolation support: parts alternate String chunks and Expr pieces.
+		// fast path (no `$`) keeps returning a plain string with zero overhead.
+		var parts:Array<Dynamic> = null;
+		var pending = -1;
+		function flushLit() {
+			if (parts != null) {
+				parts.push(b.toString());
+				b = new StringBuf();
+			}
+		}
 		while (true) {
-			var c = readChar();
+			c = pending >= 0 ? pending : readChar();
+			pending = -1;
 			if (StringTools.isEof(c)) {
 				line = old;
 				error(EUnterminatedString, p1, p1);
@@ -1699,6 +1872,41 @@ class Parser {
 				}
 			} else if (c == 92)
 				esc = true;
+			else if (c == '$'.code) {
+				if (parts == null)
+					parts = [];
+				var n = readChar();
+				if (n == '$'.code) {
+					// `$$` is the escaped dollar, like Haxe
+					b.addChar('$'.code);
+				} else if (n == '{'.code) {
+					// `${expr}` — parse the embedded expression from the same
+					// source stream, then expect the closing brace
+					flushLit();
+					var e = parseExpr();
+					var tk = token();
+					if (!Type.enumEq(tk, TBrClose))
+						unexpected(tk);
+					parts.push(e);
+				} else if (n >= 0 && idents[n]) {
+					// `$ident`
+					flushLit();
+					var id = String.fromCharCode(n);
+					while (true) {
+						var ch = readChar();
+						if (StringTools.isEof(ch) || !idents[ch]) {
+							pending = ch;
+							break;
+						}
+						id += String.fromCharCode(ch);
+					}
+					parts.push(mk(EIdent(id), readPos, readPos));
+				} else {
+					// lone `$` before a non-identifier: keep it literal
+					b.addChar('$'.code);
+					pending = n;
+				}
+			}
 			else if (c == until)
 				break;
 			else {
@@ -1707,6 +1915,9 @@ class Parser {
 				b.addChar(c);
 			}
 		}
+		if (parts != null)
+			parts.push(b.toString());
+		interpParts = parts;
 		return b.toString();
 	}
 
@@ -1918,7 +2129,9 @@ class Parser {
 				case "]".code:
 					return TBkClose;
 				case "'".code, '"'.code:
-					return TConst(CString(readString(char)));
+					interpParts = null;
+					var s = readString(char);
+					return interpParts != null ? TInterp(interpParts) : TConst(CString(s));
 				case "?".code:
 					char = readChar();
 					if (char == ".".code)
@@ -2193,6 +2406,7 @@ class Parser {
 			case TMeta(id): "@" + id;
 			case TPrepro(id): "#" + id;
 			case TQuestionDot: "?.";
+			case TInterp(parts): "<interp>";
 		}
 	}
 }

@@ -377,13 +377,11 @@ class Interp {
 							error(ECustom("Cannot reassign final, for constant expression -> " + id));
 					}
 				}
-				if (l == null) {
-					if (prefix) {
-						v += delta;
-						setTo(v);
-					} else
-						setTo(v + delta);
-				}
+				if (prefix) {
+					v += delta;
+					setTo(v);
+				} else
+					setTo(v + delta);
 				return v;
 			case EField(e, f, s):
 				var obj = expr(e);
@@ -451,8 +449,15 @@ class Interp {
 						returnValue = null;
 						return v;
 				}
+			} catch (e:Error) {
+				// already an hscript error (ErrorDef enum without hscriptPos,
+				// Error class with it): keep the original type and position
+				throw e;
 			} catch (e:Dynamic) {
-				error(ECustom('${e.toString()}'));
+				// `Std.string` (not `e.toString()`): enum ErrorDef values have
+				// no toString method on native targets, which used to swallow
+				// every error as "Cannot call null" without -D hscriptPos
+				error(ECustom(Std.string(e)));
 				return null;
 			}
 		} catch (e:Error) {
@@ -631,14 +636,27 @@ class Interp {
 			case ECall(e, params):
 				var args = new Array();
 				for (p in params)
-					args.push(expr(p));
+					switch (Tools.expr(p)) {
+						case EUnop("...", _, spread):
+							// spread call: `f(...arr)`
+							var v = expr(spread);
+							if (v == null)
+								error(EInvalidAccess("..."));
+							var arr:Array<Dynamic> = cast v;
+							for (x in arr)
+								args.push(x);
+						default:
+							args.push(expr(p));
+					}
 
 				switch (Tools.expr(e)) {
 					case EField(e, f, s):
 						var obj = expr(e);
-						if (obj == null)
+						if (obj == null) {
 							if (!s)
 								error(EInvalidAccess(f));
+							return null;
+						}
 						return fcall(obj, f, args);
 					default:
 						return call(null, expr(e), args);
@@ -693,13 +711,16 @@ class Interp {
 				var capturedLocals = duplicate(locals);
 				var me = this;
 				var hasOpt = false, minParams = 0;
+				var hasRest = false;
 				for (p in params)
-					if (p.opt)
+					if (p.rest)
+						hasRest = true;
+					else if (p.opt || p.value != null)
 						hasOpt = true;
 					else
 						minParams++;
 				var f = function(args: Array<Dynamic>) {
-					if (((args == null) ? 0 : args.length) != params.length) {
+					if (!hasRest && ((args == null) ? 0 : args.length) != params.length) {
 						if (args.length < minParams) {
 							var str = "Invalid number of parameters. Got " + args.length + ", required " + minParams;
 							if (name != null)
@@ -711,12 +732,17 @@ class Interp {
 						var extraParams = args.length - minParams;
 						var pos = 0;
 						for (p in params)
-							if (p.opt) {
+							if (p.opt || p.value != null) {
 								if (extraParams > 0) {
 									args2.push(args[pos++]);
 									extraParams--;
-								} else
-									args2.push(null);
+								} else {
+									// apply the parsed default value
+									var defVal:Dynamic = null;
+									if (p.value != null)
+										defVal = expr(p.value);
+									args2.push(defVal);
+								}
 							} else
 								args2.push(args[pos++]);
 						args = args2;
@@ -724,8 +750,21 @@ class Interp {
 					var old = me.locals, depth = me.depth;
 					me.depth++;
 					me.locals = me.duplicate(capturedLocals);
+					var restIndex = -1;
 					for (i in 0...params.length)
-						me.locals.set(params[i].name, {r: args[i], const: false});
+						if (params[i].rest)
+							restIndex = i;
+					if (restIndex >= 0) {
+						// `function f(a, ...rest)` — pack the remaining args
+						var restArgs = [];
+						for (i in restIndex...args.length)
+							restArgs.push(args[i]);
+						for (i in 0...params.length)
+							me.locals.set(params[i].name, {r: i == restIndex ? restArgs : args[i], const: false});
+					} else {
+						for (i in 0...params.length)
+							me.locals.set(params[i].name, {r: args[i], const: false});
+					}
 					var r = null;
 					var oldDecl = declared.length;
 					if (inTry)
@@ -856,23 +895,49 @@ class Interp {
 				var val: Dynamic = expr(e);
 				var match = false;
 				for (c in cases) {
-					for (v in c.values)
-						if ((!Type.enumEq(Tools.expr(v), EIdent("_")) && expr(v) == val) && (c.ifExpr == null || expr(c.ifExpr) == true)) {
+					var old = declared.length;
+					for (v in c.values) {
+						var ve = Tools.expr(v);
+						var isWildcard = Type.enumEq(ve, EIdent("_"));
+						if (!isWildcard)
+							switch (ve) {
+								case EIdent(id):
+									// `case x:` binds x to the switched value
+									declared.push({n: id, old: locals.get(id)});
+									locals.set(id, {r: val, const: false});
+								default:
+							}
+						if (!isWildcard && expr(v) == val && (c.ifExpr == null || expr(c.ifExpr) == true)) {
 							match = true;
 							break;
 						}
+					}
 					if (match) {
 						val = expr(c.expr);
+						restore(old);
 						break;
 					}
+					restore(old);
 				}
 				if (!match)
 					val = def == null ? null : expr(def);
 				return val;
 			case EMeta(_, _, e):
 				return expr(e);
-			case ECheckType(e, _):
-				return expr(e);
+			case ECheckType(e, t):
+				var v = expr(e);
+				// best-effort checked cast (`cast (v, T)`): validate only when
+				// the target resolves to a real class/enum; primitives, Dynamic
+				// and script-defined types are always accepted
+				switch (t) {
+					case CTPath(p):
+						var target = p.pack.concat([p.name]).join(".");
+						var cl = Tools.getClass(target);
+						if (cl != null && v != null && !Std.isOfType(v, cl))
+							error(ECustom("Cast error: " + Std.string(v) + " cannot be cast to " + target));
+					default:
+				}
+				return v;
 			case EClass(name, fields, extend, interfaces):
 				if (customClasses.exists(name))
 					error(EAlreadyExistingClass(name));
@@ -886,6 +951,51 @@ class Interp {
 					return thing;
 				}
 				customClasses.set(name, new CustomClassHandler(this, name, fields, importVar(extend), [for (i in interfaces) importVar(i)]));
+
+				// evaluate static members once at declaration time so
+				// `ClassName.staticField` / `ClassName.staticFunc()` work
+				// without instantiating the class (Haxe semantics)
+				{
+					var handler = customClasses.get(name);
+					var sInterp = new Interp();
+					sInterp.errorHandler = errorHandler;
+					sInterp.importFailedCallback = importFailedCallback;
+					sInterp.allowStaticVariables = allowStaticVariables;
+					sInterp.allowPublicVariables = allowPublicVariables;
+					sInterp.importEnabled = importEnabled;
+					sInterp.staticVariables = staticVariables;
+					sInterp.customClasses = customClasses;
+					sInterp.variables = variables;
+					sInterp.publicVariables = publicVariables;
+					sInterp.imports = imports;
+					#if haxe3
+					sInterp.locals = new Map();
+					#else
+					sInterp.locals = new Hash();
+					#end
+					for (fexpr in fields) {
+						switch (Tools.expr(fexpr)) {
+							case EVar(n, _, _, _, _, true):
+								sInterp.exprReturn(fexpr);
+								if (staticVariables.exists(n))
+									handler.staticFields.set(n, staticVariables.get(n));
+							case EFunction(_, _, fname, _, isPublic, true, _):
+								sInterp.exprReturn(fexpr);
+								if (fname != null) {
+									var f:Dynamic = null;
+									if (staticVariables.exists(fname))
+										f = staticVariables.get(fname);
+									else if (allowPublicVariables && publicVariables.exists(fname))
+										f = publicVariables.get(fname);
+									else if (variables.exists(fname))
+										f = variables.get(fname);
+									if (f != null)
+										handler.staticFields.set(fname, f);
+								}
+							default:
+						}
+					}
+				}
 				return null;
 			case EEnum(enumName, fields):
 				var obj = {};

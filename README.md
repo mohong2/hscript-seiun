@@ -50,6 +50,27 @@ The package names stay `crowplexus.hscript` / `crowplexus.iris`, so this is a
 - Class-field assignment syncs locals and the variable table, so `obj.field`
   always reads the freshest value
 
+### Haxe syntax additions
+
+- **String interpolation**: `"v=$x"`, `"v=${x + 2}"`, `"${obj.field}"`;
+  `$$` is the escaped dollar, just like Haxe
+- **`cast`**: both `cast (x, T)` (checked against resolvable classes, raises
+  "Cast error" on mismatch) and `cast x` (unchecked)
+- **`untyped`**: parsed and evaluated as the wrapped expression
+- **Generic constructor type parameters**: `new Array<Int>()`,
+  `new Array<Array<Int>>()` (types are discarded, like a compile-time concept)
+- **Object shorthand** (Haxe 4): `{x}` means `{x: x}`
+- **Destructuring declarations** (Haxe 4):
+  `var [a, b] = arr;` and `var {x, y} = obj;`
+- **Spread calls** and **rest args**: `f(...arr)` and `function f(a, ...rest)`
+- **Static members via the class name**: `M.staticMethod()`, `S.staticVar`,
+  `S.staticVar = 9` — static fields are evaluated once at class declaration
+- **Switch guards**: `case v if (v > 3):` binds `v` to the switched value
+
+Also fixed while testing: `++`/`--` on local variables, default values for
+optional arguments, `?.` null-safe calls, and error propagation without
+`-D hscriptPos`.
+
 ## Runtime preprocessor (`#if`)
 
 Scripts get Haxe-style **conditional execution** (parsed at runtime — this is not
