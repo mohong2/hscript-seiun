@@ -1,3 +1,17 @@
+# 1.0.0 — hscript-seiun
+
+- Merged hscript-iris 1.1.3, hscript-improved and hscript-plus into one drop-in
+  runtime under the `crowplexus.hscript` / `crowplexus.iris` packages.
+- Script classes (`_HSX` shadow classes), script-to-script inheritance, static/public
+  variables, import callbacks/redirects, `scriptObject`, key-value for loops.
+- Fixed the runtime preprocessor: `#if` / `#elseif` / `#else` / `#end` now handle
+  nested blocks, `elseif` chains and sibling `#if` blocks with Haxe-like semantics.
+- Added `Parser.preprocessorValues` (plus the legacy `preprocesorValues` alias) so
+  hosts can feed platform/engine defines into scripts.
+- Replaced the upstream CI with a test-suite workflow (Haxe latest + 4.3.7, `--interp`).
+
+---
+
 # 1.1.3
 
 - Better `using`s
