@@ -2099,7 +2099,8 @@ class Parser {
 		while (true) {
 			var tk = token();
 			if (tk == TEof) {
-				// @see https://github.com/CodenameCrew/hscript-improved/pull/5/
+				// upstream hscript-improved: tolerate EOF while skipping
+				// an unclosed block's remainder (attribution in NOTICE)
 				if (preprocStack.length != 0) {
 					error(EInvalidPreprocessor("Unclosed"), pos, pos);
 				} else {

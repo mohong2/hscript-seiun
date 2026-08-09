@@ -6,7 +6,7 @@ import haxe.macro.Expr;
 #end
 
 /**
- * Based on CodenameCrew's DefinesMacro.hx
+ * Based on hscript-iris's DefinesMacro.hx (upstream, MIT; see NOTICE)
  */
 class DefineMacro {
 	/**
