@@ -1,4 +1,4 @@
-# hscript-seiun（中文版）
+﻿# hscript-seiun（中文版）
 
 [English](README.md) | [中文](README_zh-CN.md)
 
@@ -7,7 +7,8 @@
 [hscript-plus](https://github.com/DleanJeans/hscript-plus)，为 SeiunEngine 定制的脚本运行时。
 三者均为 MIT 许可，来源与版权说明见 [NOTICE](NOTICE)。
 
-包名保持 `crowplexus.hscript` / `crowplexus.iris`，对现有基于 iris 的引擎代码**完全向下兼容**（drop-in replacement）。
+包名从 `hscript` 开始：合并运行时的主包是 `hscript.*`（`hscript.Parser`、`hscript.Interp` ...），
+iris 工具放在 `hscript.iris.*`；上游 iris 的 `crowplexus` 前缀已去掉。
 
 ## 特性
 
@@ -113,8 +114,8 @@ Haxe / OpenFL / Flixel 项目示例见 [docs/SETUP.md](docs/SETUP.md)。
 
 ```bat
 haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES ^
-  --macro crowplexus.hscript.macros.UsingHandler.init() ^
-  --macro crowplexus.hscript.macros.ClassExtendMacro.init() ^
+  --macro hscript.macros.UsingHandler.init() ^
+  --macro hscript.macros.ClassExtendMacro.init() ^
   -main TestMain --interp
 ```
 
@@ -124,7 +125,7 @@ scriptObject、redirect、using、宏扩展类（extends 引擎类）、Bytes �
 
 ## 配置（宏作用域）
 
-`crowplexus.hscript.Config` 控制两个宏扫描的包前缀（默认对齐 SeiunEngine 自身包结构）：
+`hscript.Config` 控制两个宏扫描的包前缀（默认对齐 SeiunEngine 自身包结构）：
 
 - `ALLOWED_CUSTOM_CLASSES`：哪些包下的类生成 `_HSX` 影子（默认 `flixel/openfl/script/states/substates/backend/options/editors/mohong`）
 - `ALLOWED_ABSTRACT_AND_ENUM`：哪些包下的 abstract/enum 生成 `_HSC` 影子

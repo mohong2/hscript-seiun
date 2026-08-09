@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -23,6 +23,6 @@ jobs:
     - name: Run interpreter test-suite
       run: |
         haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES \
-          --macro 'crowplexus.hscript.macros.UsingHandler.init()' \
-          --macro 'crowplexus.hscript.macros.ClassExtendMacro.init()' \
+          --macro 'hscript.macros.UsingHandler.init()' \
+          --macro 'hscript.macros.ClassExtendMacro.init()' \
           -main TestMain --interp

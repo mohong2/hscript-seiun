@@ -1,3 +1,12 @@
+﻿# 1.2.0 - package rename
+
+- Renamed the `crowplexus.hscript.*` packages to `hscript.*` and
+  `crowplexus.iris.*` to `hscript.iris.*` - packages now start at `hscript`.
+- Updated the `CUSTOM_CLASSES` macros, engine integration, tests, docs and CI
+  accordingly. Upstream authorship (`crowplexus`) is preserved in NOTICE.
+
+---
+
 # 1.1.0 — Haxe syntax additions
 
 - String interpolation: `"$var"`, `"${expr}"`, `"${obj.field}"`, `$$` escape.
@@ -20,7 +29,7 @@
 # 1.0.0 — hscript-seiun
 
 - Merged hscript-iris 1.1.3, hscript-improved and hscript-plus into one drop-in
-  runtime under the `crowplexus.hscript` / `crowplexus.iris` packages.
+  runtime under the `hscript` / `hscript.iris` packages.
 - Script classes (`_HSX` shadow classes), script-to-script inheritance, static/public
   variables, import callbacks/redirects, `scriptObject`, key-value for loops.
 - Fixed the runtime preprocessor: `#if` / `#elseif` / `#else` / `#end` now handle
@@ -37,7 +46,7 @@
 	- You can now call the `using` statement with most classes
 	- You can make your project's classes usable by implementing an interface
 		```haxe
-		class CoolUtil implements crowplexus.iris.IrisUsingClass {}
+		class CoolUtil implements hscript.iris.IrisUsingClass {}
 		```
 	- Customizable using parsing by using @:irisUsableEntry(forceAny, onlyBasic), arguments are optional
 	- You can also prevent a function from being used by adding `@:irisNoUse` over the function.

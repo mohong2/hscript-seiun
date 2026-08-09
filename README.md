@@ -1,4 +1,4 @@
-# hscript-seiun
+﻿# hscript-seiun
 
 [![CI](https://github.com/mohong2/hscript-seiun/actions/workflows/main.yml/badge.svg)](https://github.com/mohong2/hscript-seiun/actions/workflows/main.yml)
 
@@ -10,8 +10,9 @@ with [hscript-improved](https://github.com/FNF-CNE-Devs/hscript-improved) and
 [hscript-plus](https://github.com/DleanJeans/hscript-plus).
 All three are MIT-licensed; attribution is kept in [NOTICE](NOTICE).
 
-The package names stay `crowplexus.hscript` / `crowplexus.iris`, so this is a
-**drop-in replacement** for engines that already use iris.
+Packages start at `hscript`: the merged runtime lives in `hscript.*`
+(`hscript.Parser`, `hscript.Interp`, ...), with the iris utilities under
+`hscript.iris.*`. The upstream `crowplexus` prefix is gone.
 
 ## Features
 
@@ -131,8 +132,8 @@ needed. See [docs/SETUP.md](docs/SETUP.md) for Haxe / OpenFL / Flixel examples.
 
 ```bat
 haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES ^
-  --macro crowplexus.hscript.macros.UsingHandler.init() ^
-  --macro crowplexus.hscript.macros.ClassExtendMacro.init() ^
+  --macro hscript.macros.UsingHandler.init() ^
+  --macro hscript.macros.ClassExtendMacro.init() ^
   -main TestMain --interp
 ```
 
@@ -143,7 +144,7 @@ key-value for loops and the runtime `#if` preprocessor.
 
 ## Configuration (macro scope)
 
-`crowplexus.hscript.Config` controls the package prefixes scanned by the two macros
+`hscript.Config` controls the package prefixes scanned by the two macros
 (defaults aligned with SeiunEngine's own package layout):
 
 - `ALLOWED_CUSTOM_CLASSES`: packages whose classes get `_HSX` shadows

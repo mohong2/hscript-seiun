@@ -5,7 +5,7 @@
   "description": "Super-combined HaxeScript fork for SeiunEngine: hscript-iris base + hscript-improved classes/config + hscript-plus script-class inheritance (all MIT).",
   "version": "1.1.0",
   "classPath": "",
-  "releasenote": "Haxe syntax additions: string interpolation, cast, destructuring, spread/rest, static-via-class, switch guards; fixed ++/-- write-back, optional-arg defaults and error propagation.",
+  "releasenote": "Packages renamed from crowplexus.hscript/crowplexus.iris to hscript/hscript.iris; Haxe syntax additions and runtime fixes.",
   "contributors": ["mohong2"],
   "dependencies": {}
 }

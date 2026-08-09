@@ -1,2 +1,2 @@
---macro crowplexus.hscript.macros.UsingHandler.init()
---macro crowplexus.hscript.macros.ClassExtendMacro.init()
+﻿--macro hscript.macros.UsingHandler.init()
+--macro hscript.macros.ClassExtendMacro.init()

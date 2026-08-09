@@ -1,4 +1,4 @@
-hscript-seiun
+﻿hscript-seiun
 =============
 
 Merged HaxeScript runtime for SeiunEngine.
@@ -12,7 +12,7 @@ projects (license texts are kept in LICENSE):
 
 - hscript-iris (crowplexus, Ne_Eo)
   https://github.com/crowplexus/hscript-iris
-  Base packages `crowplexus.hscript` / `crowplexus.iris`: imports and
+  Base packages `hscript` / `hscript.iris`: imports and
   aliases, finals, enums, typedefs, packages, `using`, improved error
   handling and for-loop optimizations.
 

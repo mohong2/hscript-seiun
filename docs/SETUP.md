@@ -1,4 +1,4 @@
-# Installation & Setup
+﻿# Installation & Setup
 
 ## Install the library
 
@@ -42,8 +42,8 @@ required.
 
 ```bat
 haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES ^
-  --macro crowplexus.hscript.macros.UsingHandler.init() ^
-  --macro crowplexus.hscript.macros.ClassExtendMacro.init() ^
+  --macro hscript.macros.UsingHandler.init() ^
+  --macro hscript.macros.ClassExtendMacro.init() ^
   -main TestMain --interp
 ```
 

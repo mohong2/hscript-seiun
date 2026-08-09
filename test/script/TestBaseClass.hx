@@ -1,4 +1,4 @@
-/*
+﻿/*
  * hscript-seiun functional test-suite (MIT).
  * See LICENSE and NOTICE for details.
  */
@@ -6,7 +6,7 @@ package script;
 
 /**
  * Test base class for the CUSTOM_CLASSES shadow-class macro
- * (package `script` is in crowplexus.hscript.Config.ALLOWED_CUSTOM_CLASSES).
+ * (package `script` is in hscript.Config.ALLOWED_CUSTOM_CLASSES).
  */
 class TestBaseClass {
 	public var baseValue:Int = 100;

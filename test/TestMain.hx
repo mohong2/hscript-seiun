@@ -1,28 +1,28 @@
-/*
+﻿/*
  * hscript-seiun functional test-suite (MIT).
  * See LICENSE and NOTICE for details.
  */
 package;
 
-import crowplexus.hscript.Bytes;
-import crowplexus.hscript.Config;
-import crowplexus.hscript.CustomClassHandler;
-import crowplexus.hscript.DynamicClass;
-import crowplexus.hscript.Expr;
-import crowplexus.hscript.Interp;
-import crowplexus.hscript.InterpIterator;
-import crowplexus.hscript.Parser;
-import crowplexus.hscript.Printer;
-import crowplexus.hscript.Tools;
-import crowplexus.iris.Iris;
-import crowplexus.iris.utils.UsingEntry;
+import hscript.Bytes;
+import hscript.Config;
+import hscript.CustomClassHandler;
+import hscript.DynamicClass;
+import hscript.Expr;
+import hscript.Interp;
+import hscript.InterpIterator;
+import hscript.Parser;
+import hscript.Printer;
+import hscript.Tools;
+import hscript.iris.Iris;
+import hscript.iris.utils.UsingEntry;
 
 /**
  * Functional test-suite for hscript-seiun.
  * Run with:
  *   haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES \
- *        --macro crowplexus.hscript.macros.UsingHandler.init() \
- *        --macro crowplexus.hscript.macros.ClassExtendMacro.init() \
+ *        --macro hscript.macros.UsingHandler.init() \
+ *        --macro hscript.macros.ClassExtendMacro.init() \
  *        -main TestMain --interp
  */
 class TestMain {
