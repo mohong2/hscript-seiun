@@ -1,9 +1,11 @@
 {
-  "name": "hscript",
-  "url": "https://github.com/HaxeFoundation/hscript",
+  "name": "hscript-seiun",
+  "url": "https://github.com/mohong2/hscript-seiun",
   "license": "MIT",
-  "description": "Haxe Script is a scripting engine for a subset of the Haxe language",
-  "version": "2.7.0",
-  "releasenote": "See https://github.com/HaxeFoundation/hscript/releases",
-  "contributors": ["ncannasse","HaxeFoundation"]
+  "description": "Super-combined HaxeScript fork for SeiunEngine: hscript-iris base + hscript-improved classes/config + hscript-plus script-class inheritance (all MIT).",
+  "version": "1.0.0",
+  "classPath": "",
+  "releasenote": "First merged release. Drop-in replacement for hscript-iris (crowplexus.hscript / crowplexus.iris packages).",
+  "contributors": ["mohong2"],
+  "dependencies": {}
 }

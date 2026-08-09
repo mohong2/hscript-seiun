@@ -1,100 +1,118 @@
-hscript
-=======
+# hscript-seiun
 
-Parse and evalutate Haxe expressions.
+**超级结合体版 HaxeScript** —— 以 [hscript-iris](https://github.com/crowplexus/hscript-iris) 1.1.3 为底座，
+缝合 [hscript-improved](https://github.com/FNF-CNE-Devs/hscript-improved) 与
+[hscript-plus](https://github.com/DleanJeans/hscript-plus)，为 SeiunEngine 定制的脚本运行时。
+三者均为 MIT 许可，详见 [NOTICE](NOTICE)。
 
+包名保持 `crowplexus.hscript` / `crowplexus.iris`，对现有基于 iris 的引擎代码**完全向下兼容**（drop-in replacement）。
 
-In some projects it's sometimes useful to be able to interpret some code dynamically, without recompilation.
+## 特性
 
-Haxe script is a complete subset of the Haxe language.
+### 来自 hscript-iris（保留）
+- `import` + 别名（`import Foo as Bar`）、`package`、`using`
+- `final` 常量、`enum`、`typedef` 重定向
+- 空值合并 `??` / `??=`
+- 改进的错误处理、`showPosOnLog`
+- for 循环迭代器缓存等性能优化
 
-It is dynamically typed but allows all Haxe expressions apart from type (class,enum,typedef) declarations.
+### 来自 hscript-improved（FNF-CNE-Devs）
+- **脚本类**：`class Foo { ... }`、`new Foo()`、字段/方法/`this`
+- **CUSTOM_CLASSES 宏**：脚本类可 `extends` 引擎类（如 `class MySprite extends FlxSprite`），
+  编译期生成 `_HSX` 影子类，运行时可覆盖引擎方法
+- `scriptObject`（父对象绑定，`this` 解析）
+- `static` / `public` 变量与函数（`staticVariables` / `publicVariables`，`allowStaticVariables` / `allowPublicVariables`）
+- `errorHandler`、`importFailedCallback`、`importBlocklist`、`importRedirects`
+- `getRedirects` / `setRedirects`、`@:bypassAccessor`
+- `Abstract`/`Enum` 的 `_HSC` 影子类（UsingHandler 宏）
 
-Usage
------
+### 来自 hscript-plus
+- **脚本类继承**：`class Dog extends Animal {}`（两个都是脚本类），
+  实例为带 `__sname__` + `super` 链的 Dynamic 对象，方法覆盖 / 继承字段 / `super.method()` 均可用
+- `public` / `private` / `static` / `override` / `dynamic` / `inline` 访问修饰符解析
 
-```haxe
-var expr = "var x = 4; 1 + 2 * x";
-var parser = new hscript.Parser();
-var ast = parser.parseString(expr);
-var interp = new hscript.Interp();
-trace(interp.execute(ast));
+### 其他合并增强
+- 键值对 for：`for (k => v in map)`
+- 脚本类静态变量**跨实例真正共享**（共享 `staticVariables` 引用）
+- 类字段赋值同时同步 locals 与变量表，`obj.field` 始终读到最新值
+
+## 安装
+
+```bat
+haxelib dev hscript-seiun <本仓库路径>
 ```
 
-In case of a parsing error an `hscript.Expr.Error` is thrown. You can use `parser.line` to check the line number.
+或在 `project.xml` 中：
 
-You can set some globaly accessible identifiers by using `interp.variables.set("name",value)`
-
-Example
--------
-
-Here's a small example of Haxe Script usage :
-```haxe
-var script = "
-	var sum = 0;
-	for( a in angles )
-		sum += Math.cos(a);
-	sum; 
-";
-var parser = new hscript.Parser();
-var program = parser.parseString(script);
-var interp = new hscript.Interp();
-interp.variables.set("Math",Math); // share the Math class
-interp.variables.set("angles",[0,1,2,3]); // set the angles list
-trace( interp.execute(program) ); 
+```xml
+<haxelib name="hscript-seiun"/>
+<!-- 可选：开启脚本类 extends 引擎类 -->
+<define name="CUSTOM_CLASSES"/>
 ```
 
-This will calculate the sum of the cosines of the angles given as input.
+库根目录的 `extraParams.hxml` 会自动注入两个编译期宏
+（`UsingHandler.init()` / `ClassExtendMacro.init()`），无需手动添加。
 
-Haxe Script has not been really optimized, and it's not meant to be very fast. But it's entirely crossplatform since it's pure Haxe code (it doesn't use any platform-specific API).
+## 测试
 
-Advanced Usage
---------------
+```bat
+haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES ^
+  --macro crowplexus.hscript.macros.UsingHandler.init() ^
+  --macro crowplexus.hscript.macros.ClassExtendMacro.init() ^
+  -main TestMain --interp
+```
 
-When compiled with `-D hscriptPos` you will get fine error reporting at parsing time.
+覆盖：iris 语法、脚本类、脚本类继承、静态共享、错误处理器、导入回调、blocklist、
+scriptObject、redirect、using、宏扩展类（extends 引擎类）、Bytes 往返、Printer、
+键值对 for、运行时预处理（`#if` 条件编译）。
 
-You can subclass `hscript.Interp` to override behaviors for `get`, `set`, `call`, `fcall` and `cnew`.
+## 运行时预处理（`#if`）
 
-You can add more binary and unary operations to the parser by setting `opPriority`, `opRightAssoc` and `unops` content.
+脚本内置 Haxe 风格的**条件执行**（注意：是脚本运行时解析，不是编译期条件编译）：
 
-You can use `parser.allowJSON` to allow JSON data.
+```haxe
+#if android
+var plat = "android";
+#elseif ios
+var plat = "ios";
+#else
+var plat = "other";
+#end
+```
 
-You can use `parser.allowTypes` to parse types for local vars, exceptions, function args and return types. Types are ignored by the interpreter.
+支持 `#if` / `#elseif` / `#else` / `#end`、`!`、`&&`、`||` 与括号。
+判断依据是 `Parser.preprocessorValues` 中**是否存在**该键（值是什么无所谓，和 Haxe 的
+`#if` 语义一致）；嵌套 `#if` 与多层 `#elseif` 链均可正确配对。
 
-You can use `parser.allowMetadata` to parse metadata before expressions on in anonymous types. Metadata are ignored by the interpreter.
+引擎接入方（如 SeiunEngine 的 `HScript`）默认会注入平台键：
+`android` / `ios` / `windows` / `linux` / `mac` / `web` / `html5` /
+`desktop` / `mobile` / `sys`，以及 `engine` / `engineName` / `hscript`。
+自定义键直接 `parser.preprocessorValues.set("myFeature", true)` 即可。
 
-You can use `new hscript.Macro(pos).convert(ast)` to convert an hscript AST to a Haxe macros one.
+历史遗留的拼写别名 `preprocesorValues`（少一个 s）仍可用，写入会自动同步到
+`preprocessorValues`。
 
-You can use `hscript.Checker` in order to type check and even get completion, using `haxe -xml` output for type information.
+## 配置（宏作用域）
 
-Limitations
------------
+`crowplexus.hscript.Config` 控制两个宏扫描的包前缀（默认对齐 SeiunEngine 自身包结构）：
 
-Compared to Haxe, limitations are :
+- `ALLOWED_CUSTOM_CLASSES`：哪些包下的类生成 `_HSX` 影子（默认 `flixel/openfl/script/states/substates/backend/options/editors/mohong`）
+- `ALLOWED_ABSTRACT_AND_ENUM`：哪些包下的 abstract/enum 生成 `_HSC` 影子
+- `DISALLOW_CUSTOM_CLASSES` / `DISALLOW_ABSTRACT_AND_ENUM`：按模块名拉黑
 
-- `switch` construct is supported but not pattern matching (no variable capture, we use strict equality to compare `case` values and `switch` value)
-- only one variable declaration is allowed in `var`
-- the parser supports optional types for `var` and `function` if `allowTypes` is set, but the interpreter ignores them
-- you can enable per-expression position tracking by compiling with `-D hscriptPos`
-- you can parse some type declarations (import, class, typedef, etc.) with parseModule
+注意：**不要**把 `haxe`、`lime` 整个包放进去（会对 std 类做宏，
+容易炸 `haxe.Int64` 这类 abstract）；确需某几个类时逐类添加。
 
-Install
--------
+## 已知限制（继承自上游）
 
-In order to install Haxe Script, use `haxelib install hscript` and compile your program with `-lib hscript`.
+- `Async.hx` / `Checker.hx` 在 hscript-iris 1.1.3 上游就存在编译问题
+  （`hscriptPos` 下类型不匹配），引擎运行路径不引用它们；本库仅做了少量顺手修复（EField 参数）。
+- `using StringTools` 依赖静态方法反射，neko `--interp` 下不可用（上游行为），cpp 真机目标可用。
+- 脚本类构造器链：`class Child extends Parent` 时，父类字段会在子实例中重求值，
+  父构造器只会在子实例上执行一次；显式 `super.new()` 目前不保证绑定到子实例
+  （与 hscript-improved 上游行为一致）。
 
-These are the main required files in hscript :
+## License
 
-  - `hscript.Expr` : contains enums declarations
-  - `hscript.Parser` : a small parser that turns a string into an expression structure (AST)
-  - `hscript.Interp` : a small interpreter that execute the AST and returns the latest evaluated value
-
-Some other optional files :
-  
-  - `hscript.Async` : converts Expr into asynchronous version
-  - `hscript.Bytes` : Expr serializer/unserializer
-  - `hscript.Checker` : type checking and completion for hscript Expr
-  - `hscript.Macro` : convert Haxe macro into hscript Expr
-  - `hscript.Printer` : convert hscript Expr to String
-  - `hscript.Tools` : utility functions (map/iter)
- 
+MIT。本库是 hscript / hscript-iris / hscript-improved / hscript-plus
+四个 MIT 项目的派生合并，版权与来源说明见 [NOTICE](NOTICE) 与 [LICENSE](LICENSE)。

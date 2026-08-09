@@ -1,1 +1,2 @@
---macro keep('IntIterator')
+--macro crowplexus.hscript.macros.UsingHandler.init()
+--macro crowplexus.hscript.macros.ClassExtendMacro.init()

@@ -1,0 +1,33 @@
+hscript-seiun
+=============
+
+Merged HaxeScript runtime for SeiunEngine.
+
+This library is a derivative work combining the following MIT-licensed
+projects (license texts are kept in LICENSE):
+
+- hscript (Haxe Foundation, (C)2008-2017)
+  https://github.com/HaxeFoundation/hscript
+  Base parser/interpreter (Expr, Parser, Interp, Printer, Bytes, ...).
+
+- hscript-iris (crowplexus, Ne_Eo)
+  https://github.com/crowplexus/hscript-iris
+  Base packages `crowplexus.hscript` / `crowplexus.iris`: imports and
+  aliases, finals, enums, typedefs, packages, `using`, improved error
+  handling and for-loop optimizations.
+
+- hscript-improved (FNF-CNE-Devs)
+  https://github.com/FNF-CNE-Devs/hscript-improved
+  Script-class runtime (CustomClassHandler, IHScriptCustomBehaviour,
+  IHScriptCustomConstructor), `_HSX` / `_HSC` shadow-class build macros
+  (macros/ClassExtendMacro.hx, UsingHandler.hx, Utils.hx), plus
+  scriptObject, static/public variables, import callbacks and redirects
+  merged into Interp.
+
+- hscript-plus (Dlean Jeans, (C)2017)
+  https://github.com/DleanJeans/hscript-plus
+  Script-to-script class inheritance via Dynamic `super` chains
+  (DynamicClass.hx, access-modifier parsing).
+
+No code from FNF Codename Engine (Apache-2.0) is included; this library is
+built entirely from the MIT-licensed hscript forks listed above.

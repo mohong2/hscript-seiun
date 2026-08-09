@@ -1,2 +1,14 @@
-/hscript.swf
-/release.zip
+# Haxe build artifacts
+bin/
+export/
+*.n
+*.hl
+*.js
+*.swf
+*.php
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
