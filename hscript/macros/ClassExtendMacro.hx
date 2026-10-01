@@ -1,4 +1,4 @@
-﻿/*
+/*
  * hscript-seiun — SeiunEngine's merged HaxeScript runtime (MIT).
  *
  * Derived from hscript-improved (FNF-CNE-Devs, MIT):
@@ -46,6 +46,27 @@ class ClassExtendMacro {
 		}
 		#end
 		#end
+	}
+
+	/**
+	 * 判断形参列表里是否含 rest 形参。
+	 * Haxe 4.2.5 与 4.3.7 都会把 `args:haxe.Rest<T>` 与 `...args:T` 两种写法
+	 * 解析成同一个 TPath(haxe.Rest)，因此这里做结构化判断即可，无版本依赖。
+	 */
+	static function hasRestArg(args:Array<FunctionArg>):Bool
+	{
+		if (args == null) return false;
+		for (a in args)
+		{
+			if (a == null || a.type == null) continue;
+			switch (a.type)
+			{
+				case TPath({name: "Rest", pack: ["haxe"]}):
+					return true;
+				case _:
+			}
+		}
+		return false;
 	}
 
 	public static function build():Array<Field> {
@@ -190,6 +211,13 @@ class ClassExtendMacro {
 
 						if(fun.params == null)
 							fun.params = [];
+
+						// Haxe 4.3 / openfl 9.5.2 起，部分库函数带 rest 形参（如
+						// openfl.events.Event.formatToString(className:String, args:haxe.Rest<String>)）。
+						// 影子类无法把 rest 形参安全转发给 super（会生成把 haxe.Rest<T> 当 T 用的调用），
+						// 因此跳过含 rest 形参的函数：不为它生成 override / _HX_SUPER__ 转发。
+						if (hasRestArg(fun.args))
+							continue;
 
 						var overrideExpr:Expr;
 						var returns:Bool = !fun.ret.match(TPath({name: "Void"}));
