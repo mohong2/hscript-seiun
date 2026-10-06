@@ -1,4 +1,4 @@
-﻿/*
+/*
  * hscript-seiun — SeiunEngine's merged HaxeScript runtime (MIT).
  *
  * Derivative work merged from these MIT-licensed projects:
@@ -41,8 +41,14 @@ class CustomClassHandler implements IHScriptCustomConstructor implements IHScrip
 	}
 
 	public function hget(name:String):Dynamic {
-		if (staticFields.exists(name))
+		if (staticFields.exists(name)) {
+			// read the live static (it is shared with the declaring script's
+			// Interp) instead of the snapshot taken at class-declaration time,
+			// so `ClassName.field` sees writes made from constructors/methods
+			if (ogInterp.staticVariables.exists(name))
+				return ogInterp.staticVariables.get(name);
 			return staticFields.get(name);
+		}
 		return Reflect.field(this, name);
 	}
 
@@ -65,39 +71,39 @@ class CustomClassHandler implements IHScriptCustomConstructor implements IHScrip
 		interp.allowPublicVariables = ogInterp.allowPublicVariables;
 		interp.importEnabled = ogInterp.importEnabled;
 
-		// script-to-script inheritance: the parent is another script class
-		var scriptParent:CustomClassHandler = extend == null ? null : ogInterp.customClasses.get(extend);
+		// script-to-script inheritance: walk up the chain of script classes
+		// (`class C extends B extends A`). chain[0] is this class, the last entry
+		// is the topmost ancestor, which either has no `extend` (TemplateClass
+		// stand-in) or extends a real Haxe class / generated `_HSX` shadow class.
+		var chain:Array<CustomClassHandler> = [this];
+		var cursor:CustomClassHandler = this;
+		while (true) {
+			var parent:CustomClassHandler = cursor.extend == null ? null : cursor.ogInterp.customClasses.get(cursor.extend);
+			if (parent == null)
+				break;
+			chain.push(parent);
+			cursor = parent;
+		}
+		var top = chain[chain.length - 1];
 
-		var _class:Dynamic;
 		var baseClass:Class<Dynamic> = null;
-
-		if (extend == null) {
+		if (top.extend == null) {
 			baseClass = TemplateClass;
 		} else {
-			// 1) macro shadow class (CUSTOM_CLASSES)  2) plain Haxe class  3) script class
-			baseClass = Type.resolveClass('${extend}_HSX');
-			if (baseClass == null && Type.resolveClass(extend) != null)
-				baseClass = Type.resolveClass(extend);
+			// 1) macro shadow class (CUSTOM_CLASSES)  2) plain Haxe class
+			baseClass = Type.resolveClass('${top.extend}_HSX');
+			if (baseClass == null && Type.resolveClass(top.extend) != null)
+				baseClass = Type.resolveClass(top.extend);
 		}
 
-		if (baseClass == null && scriptParent == null)
-			ogInterp.error(EInvalidClass(extend));
+		if (baseClass == null)
+			ogInterp.error(EInvalidClass(top.extend));
 
-		if (scriptParent != null) {
-			// hscript-plus style: Dynamic instance with a `super` chain.
-			// The parent instance is built without running its constructor;
-			// the constructor runs once on the child (inherited or overridden).
-			var parentInstance:Dynamic = scriptParent.buildInstance(args, true);
-			_class = DynamicClass.create(name, parentInstance);
-
-			// Re-evaluate parent fields inside the child interp so inherited
-			// methods see the child as `this` when called on a child instance.
-			for (expr in scriptParent.fields) {
-				@:privateAccess interp.exprReturn(expr);
-			}
-		} else {
-			_class = Type.createInstance(baseClass, args);
-		}
+		// TemplateClass is the zero-argument stand-in base for script classes without
+		// a Haxe base: forwarding the script's args to Type.createInstance throws on
+		// the eval target ("Something went wrong") before the script's own `new` runs
+		// below. Real Haxe base classes still need their constructor args.
+		var _class:Dynamic = Type.createInstance(baseClass, (baseClass == TemplateClass) ? [] : args);
 
 		// capture the defining script's locals/variables so class methods can
 		// access the same globals (FlxG, PlayState.instance, ...) and closures
@@ -125,14 +131,29 @@ class CustomClassHandler implements IHScriptCustomConstructor implements IHScrip
 		interp.staticVariables = ogInterp.staticVariables;
 		interp.customClasses = ogInterp.customClasses;
 
+		// Evaluate ancestor fields first (Haxe initialises base fields before
+		// derived ones) on this single instance, snapshotting the function table
+		// after each level. `super` is then a scope over those snapshots, so
+		// `super.method()` runs the ancestor implementation with `this` bound to
+		// THIS instance and `super.new(...)` initialises this instance too, instead
+		// of building a throw-away shadow parent instance + Interp for every `new`.
+		var superScope:ScriptSuper = null;
+		var level = chain.length - 1;
+		while (level >= 1) {
+			for (expr in chain[level].fields)
+				@:privateAccess interp.exprReturn(expr);
+			superScope = new ScriptSuper(interp, snapshotFunctions(interp), superScope);
+			level--;
+		}
+
 		// evaluate this class's own fields
 		for (expr in fields) {
 			@:privateAccess interp.exprReturn(expr);
 		}
 
-		// `super` inside methods: script parent instance (chain) or the static
+		// `super` inside methods: the script-parent scope chain, or the static
 		// handler used by `_HSX` shadow classes for `super.method()` calls
-		interp.variables.set("super", scriptParent != null ? DynamicClass.getSuperOf(_class) : staticHandler);
+		interp.variables.set("super", superScope != null ? superScope : staticHandler);
 
 		_class.__interp = interp;
 		interp.scriptObject = _class;
@@ -149,6 +170,22 @@ class CustomClassHandler implements IHScriptCustomConstructor implements IHScrip
 	public function toString():String {
 		return name;
 	}
+
+	/**
+	 * Function-valued members currently visible in `interp` (variables +
+	 * publicVariables). Used to snapshot one inheritance level's implementation
+	 * before a derived level is evaluated over it.
+	 */
+	public static function snapshotFunctions(interp:Interp):Map<String, Dynamic> {
+		var out = new Map<String, Dynamic>();
+		for (name => value in interp.variables)
+			if (Reflect.isFunction(value))
+				out.set(name, value);
+		for (name => value in interp.publicVariables)
+			if (!out.exists(name) && Reflect.isFunction(value))
+				out.set(name, value);
+		return out;
+	}
 }
 
 /**
@@ -164,6 +201,12 @@ class TemplateClass implements IHScriptCustomBehaviour {
 	public function hset(name:String, val:Dynamic):Dynamic {
 		if (this.__interp.variables.exists("set_" + name))
 			return this.__interp.variables.get("set_" + name)(val);
+		// keep the depth-0 local in sync: method bodies read instance fields
+		// through `Interp.locals` first, so updating only `variables` would make
+		// `obj.field = x` invisible to later method calls.
+		var local:Dynamic = this.__interp.locals.get(name);
+		if (local != null)
+			local.r = val;
 		if (this.__interp.variables.exists(name)) {
 			this.__interp.variables.set(name, val);
 			return val;
@@ -196,4 +239,59 @@ class TemplateClass implements IHScriptCustomBehaviour {
 /** Placeholder used for `super` in `_HSX` shadow classes. */
 class StaticHandler {
 	public function new() {}
+}
+
+/**
+ * `super` view over one script-class inheritance level.
+ *
+ * `methods` is the function table captured in the *child* Interp right after
+ * the ancestor level was evaluated, so calling one of them runs the ancestor
+ * implementation with `this` bound to the child instance - the same behaviour
+ * Haxe gives `super.method()`. Non-function members fall through to the child's
+ * own state, because `super.x` and `this.x` are the same storage.
+ */
+class ScriptSuper implements IHScriptCustomBehaviour {
+	var interp:Interp;
+	var methods:Map<String, Dynamic>;
+	var parent:ScriptSuper;
+
+	public function new(interp:Interp, methods:Map<String, Dynamic>, parent:ScriptSuper) {
+		this.interp = interp;
+		this.methods = methods;
+		this.parent = parent;
+	}
+
+	public function hget(name:String):Dynamic {
+		if (name == "new")
+			// never fall back to the child's own `new`: that would recurse forever
+			return findMethod("new");
+		if (methods.exists(name))
+			return methods.get(name);
+		if (name == "super")
+			return parent;
+		// members inherited from a Haxe / `_HSX` base class: the generated
+		// `_HX_SUPER__<name>` forwarder runs the base implementation on `this`
+		var scriptObject:Dynamic = interp.scriptObject;
+		if (scriptObject != null) {
+			var forwarder:Dynamic = Reflect.field(scriptObject, "_HX_SUPER__" + name);
+			if (forwarder != null)
+				return forwarder;
+		}
+		return interp.resolve(name);
+	}
+
+	/** Finds a method in this level then up the ancestor chain (never in the child). */
+	public function findMethod(name:String):Dynamic {
+		if (methods.exists(name))
+			return methods.get(name);
+		return parent == null ? null : parent.findMethod(name);
+	}
+
+	public function hset(name:String, val:Dynamic):Dynamic {
+		var local:Dynamic = interp.locals.get(name);
+		if (local != null)
+			local.r = val;
+		interp.setVar(name, val);
+		return val;
+	}
 }

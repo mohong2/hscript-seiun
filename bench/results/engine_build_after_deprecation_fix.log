@@ -1,0 +1,298 @@
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-addons/2,11,0/flixel/addons/transition/TransitionData.hx:11: characters 1-7 : Warning : (WDeprecatedEnumAbstract) `@:enum abstract` is deprecated in favor of `enum abstract`
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-addons/2,11,0/flixel/addons/transition/FlxTransitionSprite.hx:135: characters 1-7 : Warning : (WDeprecatedEnumAbstract) `@:enum abstract` is deprecated in favor of `enum abstract`
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-ui/2,4,0/flixel/addons/ui/FlxUICursor.hx:561: characters 9-11 : Warning : Potential typo detected (expected similar values are flixel.addons.ui.SortMethod.ID)
+source/_online_libs/tink/http/Fetch.hx:26: characters 10-22 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/FlashClient.hx:29: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/SocketClient.hx:22: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/StdClient.hx:19: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:408: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/StreamParser.hx:45: characters 14-26 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:717: characters 26-38 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:696: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/std/InputSource.hx:15: characters 11-23 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/std/OutputSink.hx:23: characters 56-68 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:593: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:448: characters 7-19 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:650: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:671: characters 11-23 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:261: characters 17-32 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:262: characters 7-18 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:263: characters 17-29 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:368: characters 6-32 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:376: characters 6-23 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:376: characters 27-43 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:379: characters 13-43 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:477: characters 6-24 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:477: characters 28-47 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:480: characters 11-30 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:480: characters 34-52 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:484: characters 11-29 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:489: characters 11-42 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:493: characters 11-31 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:496: characters 11-29 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+Creating O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/export/release/windows/obj/obj/msvc1964-nc/__pch/haxe/hxcpp.pch...
+hxcpp.cpp
+正在编译第 1/13 组: haxe (473 个文件, 总进度 0%, 已用 0s)
+
+[░░░░░░░░░░░░░░░░░░░░░░░░] 0% 1/473 剩余 3m35s  src/openfl/utils/Register_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 0% 2/473 剩余 8m43s  ...itors/content/FileReferenceCustom_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 1% 5/473 剩余 3m55s  src/flixel/graphics/atlas/FlxNode_HSX.cpp   
+[░░░░░░░░░░░░░░░░░░░░░░░░] 1% 8/473 剩余 2m40s  src/flixel/FlxObject_HSX.cpp             
+[░░░░░░░░░░░░░░░░░░░░░░░░] 1% 9/473 剩余 2m42s  ...l/system/frontEnds/SignalFrontEnd_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 2% 10/473 剩余 2m40s  src/flixel/system/DefaultPreloader_HSX.cpp 
+[░░░░░░░░░░░░░░░░░░░░░░░░] 2% 13/473 剩余 2m10s  src/flixel/addons/ui/StrNameLabel_HSX.cpp 
+[░░░░░░░░░░░░░░░░░░░░░░░░] 3% 16/473 剩余 1m56s  src/flixel/tweens/motion/QuadPath_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 3% 17/473 剩余 1m58s  ...input/gamepad/mappings/PS4Mapping_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 3% 18/473 剩余 2m01s  src/editors/EditorPlayState_HSX.cpp         
+[░░░░░░░░░░░░░░░░░░░░░░░░] 4% 20/473 剩余 1m58s  src/editors/WeekEditorState_HSX.cpp
+[░░░░░░░░░░░░░░░░░░░░░░░░] 4% 21/473 剩余 1m54s  src/backend/ZipExtractor_HSX.cpp   
+[░░░░░░░░░░░░░░░░░░░░░░░░] 4% 22/473 剩余 1m52s  ...flixel/input/mouse/FlxMouseButton_HSX.cpp
+[█░░░░░░░░░░░░░░░░░░░░░░░] 6% 29/473 剩余 1m34s  ...l/system/frontEnds/PluginFrontEnd_HSX.cpp
+[█░░░░░░░░░░░░░░░░░░░░░░░] 6% 32/473 剩余 1m29s  src/states/MultiCallback_HSX.cpp            
+[█░░░░░░░░░░░░░░░░░░░░░░░] 6% 33/473 剩余 1m36s  src/options/OptionLoader.cpp    
+[█░░░░░░░░░░░░░░░░░░░░░░░] 8% 40/473 剩余 1m22s  src/openfl/display/TileData_HSX.cpp
+[█░░░░░░░░░░░░░░░░░░░░░░░] 8% 41/473 剩余 1m23s  src/flixel/FlxCamera_HSX.cpp       
+[█░░░░░░░░░░░░░░░░░░░░░░░] 8% 42/473 剩余 1m22s  src/script/FunkinSprite_HSX.cpp
+[██░░░░░░░░░░░░░░░░░░░░░░] 9% 45/473 剩余 1m18s  ...el/graphics/tile/FlxDrawQuadsItem_HSX.cpp
+[██░░░░░░░░░░░░░░░░░░░░░░] 9% 46/473 剩余 1m16s  ...el/graphics/tile/FlxDrawQuadsItem_HSX.cpp
+[██░░░░░░░░░░░░░░░░░░░░░░] 10% 48/473 剩余 1m18s  src/openfl/display/FPS_HSX.cpp             
+[██░░░░░░░░░░░░░░░░░░░░░░] 10% 49/473 剩余 1m20s  src/openfl/geom/Rectangle_HSX.cpp
+[██░░░░░░░░░░░░░░░░░░░░░░] 10% 50/473 剩余 1m26s  ...lixel/system/frontEnds/SignalFrontEnd.cpp
+[██░░░░░░░░░░░░░░░░░░░░░░] 10% 51/473 剩余 1m26s  src/substates/GameOverSubstate_HSX.cpp      
+[██░░░░░░░░░░░░░░░░░░░░░░] 12% 58/473 剩余 1m16s  src/flixel/text/FlxText_HSX.cpp       
+[██░░░░░░░░░░░░░░░░░░░░░░] 12% 60/473 剩余 1m14s  src/openfl/IntVector_HSX.cpp   
+[██░░░░░░░░░░░░░░░░░░░░░░] 12% 61/473 剩余 1m14s  ...l/input/gamepad/FlxGamepadManager_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 13% 63/473 剩余 1m13s  src/flixel/addons/ui/FlxMultiGamepad_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 13% 64/473 剩余 1m14s  src/flixel/addons/ui/FlxUIRegion_HSX.cpp    
+[███░░░░░░░░░░░░░░░░░░░░░] 13% 65/473 剩余 1m15s  src/flixel/addons/ui/FlxUICheckBox_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 13% 66/473 剩余 1m16s  src/states/PlayState_HSX.cpp              
+[███░░░░░░░░░░░░░░░░░░░░░] 14% 68/473 剩余 1m15s  ...put/actions/FlxActionInputDigital_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 14% 69/473 剩余 1m14s  src/flixel/system/ui/FlxSystemButton_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 15% 75/473 剩余 1m08s  src/openfl/display/Tileset_HSX.cpp          
+[███░░░░░░░░░░░░░░░░░░░░░] 16% 77/473 剩余 1m07s  .../addons/transition/TransitionFade_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 16% 78/473 剩余 1m11s  ...ut/gamepad/mappings/XInputMapping_HSX.cpp
+[███░░░░░░░░░░░░░░░░░░░░░] 16% 80/473 剩余 1m10s  ...el/graphics/frames/FlxAtlasFrames_HSX.cpp
+[████░░░░░░░░░░░░░░░░░░░░] 17% 81/473 剩余 1m09s  src/flixel/FlxState_HSX.cpp                 
+[████░░░░░░░░░░░░░░░░░░░░] 17% 82/473 剩余 1m12s  src/openfl/events/UncaughtErrorEvent_HSX.cpp
+[████░░░░░░░░░░░░░░░░░░░░] 18% 87/473 剩余 1m08s  src/editors/content/BasePrompt_HSX.cpp      
+[████░░░░░░░░░░░░░░░░░░░░] 18% 88/473 剩余 1m08s  ...ons/ui/FlxMultiGamepadAnalogStick_HSX.cpp
+[████░░░░░░░░░░░░░░░░░░░░] 19% 91/473 剩余 1m07s  src/script/hscript/LuaRef_HSX.cpp           
+[████░░░░░░░░░░░░░░░░░░░░] 19% 92/473 剩余 1m07s  src/editors/content/EditorsText_HSX.cpp
+[████░░░░░░░░░░░░░░░░░░░░] 20% 97/473 剩余 1m05s  src/backend/ui/DropItem_HSX.cpp        
+[█████░░░░░░░░░░░░░░░░░░░] 21% 100/473 剩余 1m03s  src/openfl/system/LoaderContext_HSX.cpp
+[█████░░░░░░░░░░░░░░░░░░░] 21% 101/473 剩余 1m03s  src/script/FunkinText_HSX.cpp          
+[█████░░░░░░░░░░░░░░░░░░░] 21% 103/473 剩余 1m02s  src/flixel/addons/text/TypeSound_HSX.cpp
+[█████░░░░░░░░░░░░░░░░░░░] 22% 107/473 剩余 59s  src/openfl/filters/BlurShader_HSX.cpp     
+[█████░░░░░░░░░░░░░░░░░░░] 22% 108/473 剩余 59s  src/openfl/display/Shape_HSX.cpp     
+[█████░░░░░░░░░░░░░░░░░░░] 23% 111/473 剩余 58s  ...ons/display/shapes/FlxShapeCircle_HSX.cpp
+[█████░░░░░░░░░░░░░░░░░░░] 23% 113/473 剩余 57s  src/openfl/display/SimpleButton_HSX.cpp     
+[█████░░░░░░░░░░░░░░░░░░░] 24% 114/473 剩余 57s  ...ystem/frontEnds/BitmapLogFrontEnd_HSX.cpp
+[█████░░░░░░░░░░░░░░░░░░░] 24% 115/473 剩余 57s  src/openfl/media/Video_HSX.cpp              
+[█████░░░░░░░░░░░░░░░░░░░] 24% 118/473 剩余 56s  src/states/stages/TankStage_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 25% 120/473 剩余 55s  src/backend/PsychCamera_HSX.cpp    
+[██████░░░░░░░░░░░░░░░░░░] 25% 121/473 剩余 56s  ...el/system/frontEnds/SoundFrontEnd_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 25% 122/473 剩余 57s  src/openfl/system/SecurityDomain_HSX.cpp    
+[██████░░░░░░░░░░░░░░░░░░] 26% 125/473 剩余 56s  ...xel/effects/particles/FlxParticle_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 26% 127/473 剩余 55s  ...ixel/addons/transition/Transition_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 27% 130/473 剩余 54s  src/states/ModsMenuStateOld_HSX.cpp         
+[██████░░░░░░░░░░░░░░░░░░] 27% 132/473 剩余 54s  ...ons/FlxActionInputDigitalKeyboard_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 28% 133/473 剩余 54s  ...lixel/addons/ui/FlxUITooltipEntry_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 28% 134/473 剩余 53s  src/substates/OldPauseSubState_HSX.cpp      
+[██████░░░░░░░░░░░░░░░░░░] 28% 135/473 剩余 53s  .../addons/transition/TransitionData_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 28% 137/473 剩余 53s  ...gamepad/mappings/WiiRemoteMapping_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 29% 138/473 剩余 53s  src/flixel/addons/ui/AnchorPoint_HSX.cpp    
+[██████░░░░░░░░░░░░░░░░░░] 29% 140/473 剩余 52s  ...ixel/text/FlxTextFormatMarkerPair_HSX.cpp
+[██████░░░░░░░░░░░░░░░░░░] 29% 141/473 剩余 52s  src/flixel/input/FlxBaseKeyList_HSX.cpp     
+[███████░░░░░░░░░░░░░░░░░] 30% 143/473 剩余 51s  src/hscript/Parser.cpp                 
+[███████░░░░░░░░░░░░░░░░░] 30% 145/473 剩余 51s  src/flixel/addons/ui/FlxUI_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 30% 146/473 剩余 51s  src/flixel/util/FlxTimerManager.cpp
+[███████░░░░░░░░░░░░░░░░░] 31% 147/473 剩余 51s  src/script/lua/ModchartText_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 31% 148/473 剩余 50s  ...tem/debug/interaction/tools/Mover_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 31% 150/473 剩余 50s  src/flixel/tweens/motion/Motion_HSX.cpp     
+[███████░░░░░░░░░░░░░░░░░] 31% 151/473 剩余 50s  src/openfl/events/ErrorEvent_HSX.cpp   
+[███████░░░░░░░░░░░░░░░░░] 32% 153/473 剩余 50s  src/flixel/tile/FlxTileblock_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 32% 154/473 剩余 49s  src/flixel/addons/text/FlxTypeText_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 32% 156/473 剩余 49s  .../util/helpers/FlxPointRangeBounds_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 33% 157/473 剩余 49s  src/openfl/text/TextField_HSX.cpp           
+[███████░░░░░░░░░░░░░░░░░] 33% 158/473 剩余 50s  src/openfl/events/TouchEvent_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 33% 159/473 剩余 50s  src/options/BackupSettingsSubState_HSX.cpp
+[███████░░░░░░░░░░░░░░░░░] 33% 160/473 剩余 50s  src/flixel/input/mouse/FlxMouse_HSX.cpp   
+[████████░░░░░░░░░░░░░░░░] 34% 161/473 剩余 51s  src/openfl/filesystem/File_HSX.cpp     
+[████████░░░░░░░░░░░░░░░░] 34% 162/473 剩余 51s  src/openfl/BoolVector_HSX.cpp     
+[████████░░░░░░░░░░░░░░░░] 34% 163/473 剩余 51s  src/openfl/display/Sprite_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 34% 164/473 剩余 50s  src/openfl/display/Timeline_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 34% 165/473 剩余 50s  .../mappings/SwitchJoyconLeftMapping_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 35% 166/473 剩余 52s  ...el/system/frontEnds/WatchFrontEnd_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 35% 167/473 剩余 52s  ...s/effects/chainable/FlxWaveEffect_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 35% 168/473 剩余 52s  src/flixel/effects/FlxFlicker_HSX.cpp       
+[████████░░░░░░░░░░░░░░░░] 35% 169/473 剩余 52s  ...gamepad/mappings/SwitchProMapping_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 36% 171/473 剩余 52s  src/flixel/tweens/misc/NumTween_HSX.cpp     
+[████████░░░░░░░░░░░░░░░░] 36% 173/473 剩余 51s  ...ixel/input/actions/FlxActionInput_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 36% 175/473 剩余 51s  src/states/AchievementsMenuState_HSX.cpp    
+[████████░░░░░░░░░░░░░░░░] 37% 176/473 剩余 51s  src/openfl/display/LoaderInfo_HSX.cpp   
+[████████░░░░░░░░░░░░░░░░] 37% 177/473 剩余 51s  src/backend/ui/PsychUIRadioItem_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 37% 178/473 剩余 51s  src/editors/DialogueEditorState_HSX.cpp
+[████████░░░░░░░░░░░░░░░░] 37% 179/473 剩余 51s  src/script/lua/CustomSubstate_HSX.cpp  
+[█████████░░░░░░░░░░░░░░░] 38% 181/473 剩余 50s  src/openfl/geom/ColorTransform_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 38% 182/473 剩余 50s  src/openfl/events/DataEvent_HSX.cpp   
+[█████████░░░░░░░░░░░░░░░] 38% 183/473 剩余 50s  src/openfl/display/MovieClip_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 39% 185/473 剩余 50s  src/openfl/events/Listener_HSX.cpp  
+[█████████░░░░░░░░░░░░░░░] 39% 186/473 剩余 50s  src/openfl/errors/EOFError_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 39% 188/473 剩余 50s  src/options/ControlsSubState_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 39% 189/473 剩余 50s  src/openfl/events/HTTPStatusEvent_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 40% 190/473 剩余 50s  src/openfl/events/FileListEvent_HSX.cpp  
+[█████████░░░░░░░░░░░░░░░] 40% 192/473 剩余 49s  ...nputAnalogClickAndDragMouseMotion_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 40% 193/473 剩余 50s  ...ions/FlxActionInputDigitalGamepad_HSX.cpp
+[█████████░░░░░░░░░░░░░░░] 41% 195/473 剩余 49s  src/flixel/text/FlxTextFormat_HSX.cpp       
+[█████████░░░░░░░░░░░░░░░] 41% 197/473 剩余 49s  src/backend/ui/PsychUISlider_HSX.cpp 
+[██████████░░░░░░░░░░░░░░] 42% 199/473 剩余 48s  src/flixel/text/FlxTextFormatRange_HSX.cpp
+[██████████░░░░░░░░░░░░░░] 42% 200/473 剩余 48s  src/openfl/utils/AssetCache_HSX.cpp       
+[██████████░░░░░░░░░░░░░░] 42% 202/473 剩余 48s  src/openfl/errors/RangeError_HSX.cpp
+[██████████░░░░░░░░░░░░░░] 42% 203/473 剩余 48s  src/openfl/net/SharedObject_HSX.cpp 
+[██████████░░░░░░░░░░░░░░] 43% 205/473 剩余 47s  src/flixel/util/FlxSignal0_HSX.cpp 
+[██████████░░░░░░░░░░░░░░] 44% 209/473 剩余 46s  src/hscript/TemplateClass.cpp     
+[██████████░░░░░░░░░░░░░░] 44% 210/473 剩余 46s  src/flixel/system/VirtualInputData_HSX.cpp
+[██████████░░░░░░░░░░░░░░] 45% 213/473 剩余 45s  src/openfl/media/SoundLoaderContext_HSX.cpp
+[██████████░░░░░░░░░░░░░░] 45% 214/473 剩余 45s  src/substates/ModSelectSubstate_HSX.cpp    
+[██████████░░░░░░░░░░░░░░] 45% 216/473 剩余 44s  src/openfl/utils/AssetLibrary_HSX.cpp  
+[██████████░░░░░░░░░░░░░░] 45% 217/473 剩余 44s  ...lixel/addons/ui/FlxUI9SliceSprite_HSX.cpp
+[███████████░░░░░░░░░░░░░] 46% 218/473 剩余 44s  ...ixel/system/frontEnds/VCRFrontEnd_HSX.cpp
+[███████████░░░░░░░░░░░░░] 46% 219/473 剩余 44s  ...nput/actions/FlxActionInputAnalog_HSX.cpp
+[███████████░░░░░░░░░░░░░] 46% 220/473 剩余 44s  ...d/lists/FlxGamepadAnalogStateList_HSX.cpp
+[███████████░░░░░░░░░░░░░] 46% 222/473 剩余 44s  src/__boot__.cpp                            
+[███████████░░░░░░░░░░░░░] 47% 227/473 剩余 42s  src/script/lua/ModchartSprite_HSX.cpp
+[███████████░░░░░░░░░░░░░] 48% 228/473 剩余 42s  src/script/hscript/HScript.cpp       
+[███████████░░░░░░░░░░░░░] 48% 229/473 剩余 42s  ...flixel/input/keyboard/FlxKeyboard_HSX.cpp
+[███████████░░░░░░░░░░░░░] 48% 231/473 剩余 42s  src/hscript/CustomClassHandler.cpp          
+[███████████░░░░░░░░░░░░░] 49% 235/473 剩余 41s  ...xel/graphics/frames/FlxTileFrames_HSX.cpp
+[███████████░░░░░░░░░░░░░] 49% 236/473 剩余 41s  src/openfl/events/RenderEvent_HSX.cpp       
+[████████████░░░░░░░░░░░░] 50% 238/473 剩余 40s  src/online/GameClient.cpp            
+[████████████░░░░░░░░░░░░] 50% 239/473 剩余 40s  ...ns/transition/FlxTransitionSprite_HSX.cpp
+[████████████░░░░░░░░░░░░] 51% 242/473 剩余 39s  src/states/stages/PhillyStage_HSX.cpp       
+[████████████░░░░░░░░░░░░] 51% 243/473 剩余 39s  src/states/SongMetadata_HSX.cpp      
+[████████████░░░░░░░░░░░░] 52% 246/473 剩余 38s  src/openfl/display/Shader_HSX.cpp
+[████████████░░░░░░░░░░░░] 52% 247/473 剩余 38s  src/openfl/display/GraphicsShader_HSX.cpp
+[████████████░░░░░░░░░░░░] 52% 249/473 剩余 38s  src/script/hscript/PlayStateInterp_HSX.cpp
+[████████████░░░░░░░░░░░░] 53% 253/473 剩余 37s  src/script/lua/FunkinLua_HSX.cpp          
+[████████████░░░░░░░░░░░░] 53% 255/473 剩余 37s  src/backend/ui/PsychUIDropDownMenu_HSX.cpp
+[████████████░░░░░░░░░░░░] 54% 257/473 剩余 37s  src/openfl/events/Event_HSX.cpp           
+[████████████░░░░░░░░░░░░] 54% 259/473 剩余 36s  src/lime/utils/AssetCache.cpp  
+[████████████░░░░░░░░░░░░] 54% 260/473 剩余 36s  src/states/stages/LimoStage_HSX.cpp
+[█████████████░░░░░░░░░░░] 55% 261/473 剩余 36s  src/openfl/geom/Matrix3D_HSX.cpp   
+[█████████████░░░░░░░░░░░] 55% 264/473 剩余 36s  src/flixel/ui/FlxButton_HSX.cpp 
+[█████████████░░░░░░░░░░░] 56% 265/473 剩余 35s  src/openfl/events/EventDispatcher_HSX.cpp
+[█████████████░░░░░░░░░░░] 56% 266/473 剩余 35s  src/flixel/addons/ui/CheckStyle_HSX.cpp  
+[█████████████░░░░░░░░░░░] 56% 267/473 剩余 35s  src/openfl/display/OpenGLRenderer_HSX.cpp
+[█████████████░░░░░░░░░░░] 56% 268/473 剩余 35s  src/flixel/input/gamepad/FlxGamepad_HSX.cpp
+[█████████████░░░░░░░░░░░] 56% 269/473 剩余 35s  ...rs/content/ExitConfirmationPrompt_HSX.cpp
+[█████████████░░░░░░░░░░░] 57% 272/473 剩余 34s  ...stem/debug/interaction/tools/Tool_HSX.cpp
+[█████████████░░░░░░░░░░░] 57% 273/473 剩余 34s  src/flixel/system/FlxBasePreloader_HSX.cpp  
+[█████████████░░░░░░░░░░░] 58% 275/473 剩余 34s  src/flixel/input/FlxPointer_HSX.cpp       
+[█████████████░░░░░░░░░░░] 58% 276/473 剩余 34s  src/openfl/geom/Matrix_HSX.cpp     
+[█████████████░░░░░░░░░░░] 58% 278/473 剩余 33s  src/flixel/ui/FlxBar_HSX.cpp  
+[█████████████░░░░░░░░░░░] 58% 279/473 剩余 33s  src/flixel/input/touch/FlxTouch_HSX.cpp
+[██████████████░░░░░░░░░░] 59% 282/473 剩余 32s  ...l/input/actions/DigitalActionData_HSX.cpp
+[██████████████░░░░░░░░░░] 60% 286/473 剩余 32s  ...openfl/filters/InnerCombineShader_HSX.cpp
+[██████████████░░░░░░░░░░] 60% 288/473 剩余 31s  src/script/hscript/PlayStateInterp.cpp      
+[██████████████░░░░░░░░░░] 61% 290/473 剩余 31s  src/openfl/errors/IOError_HSX.cpp     
+[██████████████░░░░░░░░░░] 61% 291/473 剩余 30s  src/substates/PauseSubState_HSX.cpp
+[██████████████░░░░░░░░░░] 61% 292/473 剩余 30s  src/flixel/system/debug/log/LogStyle_HSX.cpp
+[██████████████░░░░░░░░░░] 62% 297/473 剩余 29s  src/states/StoryMenuState_HSX.cpp           
+[███████████████░░░░░░░░░] 63% 299/473 剩余 29s  ...xel/graphics/frames/FlxImageFrame_HSX.cpp
+[███████████████░░░░░░░░░] 63% 301/473 剩余 28s  src/openfl/display/Stage3D_HSX.cpp          
+[███████████████░░░░░░░░░] 64% 303/473 剩余 28s  ...amepad/lists/FlxGamepadAnalogList_HSX.cpp
+[███████████████░░░░░░░░░] 64% 305/473 剩余 28s  ...xel/addons/ui/FlxUITooltipManager_HSX.cpp
+[███████████████░░░░░░░░░] 65% 311/473 剩余 26s  ...ditors/content/ChartingGridSprite_HSX.cpp
+[███████████████░░░░░░░░░] 65% 312/473 剩余 26s  ...nfl/display/DisplayObjectRenderer_HSX.cpp
+[███████████████░░░░░░░░░] 66% 314/473 剩余 26s  src/openfl/events/SecurityErrorEvent_HSX.cpp
+[███████████████░░░░░░░░░] 66% 315/473 剩余 26s  src/openfl/display/InteractiveObject_HSX.cpp
+[███████████████░░░░░░░░░] 66% 316/473 剩余 25s  src/openfl/ui/GameInputControl_HSX.cpp      
+[████████████████░░░░░░░░] 67% 319/473 剩余 25s  src/openfl/filters/ColorMatrixShader_HSX.cpp
+[████████████████░░░░░░░░] 68% 322/473 剩余 24s  src/backend/ui/PsychUINumericStepper_HSX.cpp
+[████████████████░░░░░░░░] 68% 326/473 剩余 23s  src/flixel/addons/ui/FlxUIText_HSX.cpp      
+[████████████████░░░░░░░░] 69% 327/473 剩余 23s  src/substates/ResetScoreSubState_HSX.cpp
+[████████████████░░░░░░░░] 70% 332/473 剩余 22s  src/flixel/tweens/misc/ColorTween_HSX.cpp
+[████████████████░░░░░░░░] 70% 335/473 剩余 22s  src/openfl/display/Bitmap_HSX.cpp        
+[█████████████████░░░░░░░] 71% 337/473 剩余 22s  src/openfl/net/FileReference_HSX.cpp
+[█████████████████░░░░░░░] 71% 339/473 剩余 21s  src/openfl/desktop/Clipboard_HSX.cpp
+[█████████████████░░░░░░░] 71% 340/473 剩余 21s  src/openfl/events/NetStatusEvent_HSX.cpp
+[█████████████████░░░░░░░] 72% 342/473 剩余 21s  .../system/scaleModes/RatioScaleMode_HSX.cpp
+[█████████████████░░░░░░░] 72% 345/473 剩余 20s  src/openfl/events/ActivityEvent_HSX.cpp     
+[█████████████████░░░░░░░] 73% 346/473 剩余 20s  ...ddons/transition/TransitionEffect_HSX.cpp
+[█████████████████░░░░░░░] 73% 348/473 剩余 20s  ...xel/addons/ui/FlxUINumericStepper_HSX.cpp
+[█████████████████░░░░░░░] 73% 349/473 剩余 20s  src/flixel/util/LabelValuePair_HSX.cpp      
+[█████████████████░░░░░░░] 74% 352/473 剩余 19s  src/options/NoteOffsetState_HSX.cpp   
+[██████████████████░░░░░░] 75% 355/473 剩余 18s  src/options/NotesSubState_HSX.cpp  
+[██████████████████░░░░░░] 75% 357/473 剩余 18s  src/openfl/display3D/UniformMap_HSX.cpp
+[██████████████████░░░░░░] 75% 358/473 剩余 18s  src/hscript/PreprocessStackValue.cpp   
+[██████████████████░░░░░░] 76% 360/473 剩余 18s  src/Main.cpp                        
+[██████████████████░░░░░░] 76% 361/473 剩余 17s  src/openfl/geom/Transform_HSX.cpp
+[██████████████████░░░░░░] 76% 363/473 剩余 17s  src/states/CrashCatcherState_HSX.cpp
+[██████████████████░░░░░░] 77% 365/473 剩余 17s  src/flixel/util/FlxSave_HSX.cpp     
+[██████████████████░░░░░░] 77% 367/473 剩余 16s  ...ompletion/CompletionListScrollBar_HSX.cpp
+[██████████████████░░░░░░] 77% 368/473 剩余 16s  src/states/OutdatedState_HSX.cpp            
+[██████████████████░░░░░░] 78% 369/473 剩余 16s  src/script/lua/DebugLuaText_HSX.cpp
+[██████████████████░░░░░░] 78% 371/473 剩余 16s  src/flixel/tweens/FlxTweenManager.cpp
+[██████████████████░░░░░░] 78% 372/473 剩余 16s  src/options/Option_HSX.cpp           
+[██████████████████░░░░░░] 78% 373/473 剩余 16s  src/flixel/system/FlxSound_HSX.cpp
+[██████████████████░░░░░░] 79% 375/473 剩余 15s  src/editors/MasterEditorMenu_HSX.cpp
+[██████████████████░░░░░░] 79% 376/473 剩余 15s  .../animation/FlxAnimationController_HSX.cpp
+[██████████████████░░░░░░] 79% 378/473 剩余 15s  src/openfl/display/DefaultPreloader_HSX.cpp 
+[███████████████████░░░░░] 80% 381/473 剩余 14s  ...d/lists/FlxGamepadMotionValueList_HSX.cpp
+[███████████████████░░░░░] 80% 382/473 剩余 14s  src/states/TitleState_HSX.cpp               
+[███████████████████░░░░░] 81% 385/473 剩余 14s  src/states/stages/SpookyStage_HSX.cpp
+[███████████████████░░░░░] 82% 388/473 剩余 13s  src/substates/ModSubState_HSX.cpp    
+[███████████████████░░░░░] 82% 389/473 剩余 13s  src/openfl/display/Tilemap_HSX.cpp
+[███████████████████░░░░░] 82% 391/473 剩余 13s  ...flixel/animation/FlxBaseAnimation_HSX.cpp
+[███████████████████░░░░░] 82% 392/473 剩余 13s  src/editors/MenuCharacterEditorState_HSX.cpp
+[███████████████████░░░░░] 83% 393/473 剩余 13s  src/flixel/addons/ui/FlxUIList_HSX.cpp      
+[███████████████████░░░░░] 83% 394/473 剩余 12s  src/flixel/addons/ui/FlxUITooltip_HSX.cpp
+[███████████████████░░░░░] 83% 396/473 剩余 12s  src/flixel/system/FlxQuadTree_HSX.cpp    
+[████████████████████░░░░] 84% 398/473 剩余 12s  src/openfl/display/OldFPS_HSX.cpp    
+[████████████████████░░░░] 84% 400/473 剩余 11s  src/openfl/geom/Point_HSX.cpp    
+[████████████████████░░░░] 85% 403/473 剩余 11s  src/flixel/addons/text/FlxTextField_HSX.cpp
+[████████████████████░░░░] 85% 405/473 剩余 11s  ...openfl/filters/BitmapFilterShader_HSX.cpp
+[████████████████████░░░░] 86% 407/473 剩余 10s  ...ns/FlxActionInputDigitalIFlxInput_HSX.cpp
+[████████████████████░░░░] 86% 408/473 剩余 10s  src/states/stages/SchoolEvilStage_HSX.cpp   
+[████████████████████░░░░] 86% 411/473 剩余 10s  src/flixel/addons/ui/FlxUIRadioGroup_HSX.cpp
+[████████████████████░░░░] 87% 413/473 剩余 9s  src/openfl/utils/AGALMiniAssembler_HSX.cpp   
+[████████████████████░░░░] 87% 416/473 剩余 9s  src/backend/ModInstaller_HSX.cpp          
+[█████████████████████░░░] 88% 417/473 剩余 9s  ...raphics/tile/FlxDrawTrianglesItem_HSX.cpp
+[█████████████████████░░░] 88% 418/473 剩余 8s  src/backend/ModInstallUI_HSX.cpp            
+[█████████████████████░░░] 89% 421/473 剩余 8s  src/openfl/net/URLLoader_HSX.cpp
+[█████████████████████░░░] 89% 422/473 剩余 8s  ...put/gamepad/FlxGamepadAnalogStick_HSX.cpp
+[█████████████████████░░░] 89% 423/473 剩余 8s  src/flixel/system/ui/FlxSoundTray_HSX.cpp   
+[█████████████████████░░░] 90% 426/473 剩余 7s  ...l/system/frontEnds/BitmapFrontEnd_HSX.cpp
+[█████████████████████░░░] 90% 427/473 剩余 7s  src/flixel/util/FlxPath_HSX.cpp             
+[█████████████████████░░░] 91% 431/473 剩余 6s  ...xel/input/actions/FlxActionAnalog_HSX.cpp
+[█████████████████████░░░] 91% 435/473 剩余 6s  src/openfl/events/TextEvent_HSX.cpp         
+[██████████████████████░░] 92% 436/473 剩余 6s  src/backend/ui/PsychUIRadioGroup_HSX.cpp
+[██████████████████████░░] 92% 437/473 剩余 5s  src/openfl/errors/Error_HSX.cpp         
+[██████████████████████░░] 93% 443/473 剩余 5s  src/editors/EditorLua_HSX.cpp  
+[██████████████████████░░] 94% 445/473 剩余 4s  src/openfl/utils/OpCode_HSX.cpp
+[██████████████████████░░] 94% 447/473 剩余 4s  src/openfl/display/TileContainer_HSX.cpp
+[██████████████████████░░] 94% 448/473 剩余 4s  ...lixel/input/touch/FlxTouchManager_HSX.cpp
+[██████████████████████░░] 95% 450/473 剩余 3s  ...nfl/filters/CombineKnockoutShader_HSX.cpp
+[██████████████████████░░] 95% 453/473 剩余 3s  ...ubstates/GameplayChangersSubstate_HSX.cpp
+[███████████████████████░] 96% 455/473 剩余 3s  .../gamepad/lists/FlxBaseGamepadList_HSX.cpp
+[███████████████████████░] 96% 458/473 剩余 2s  src/flixel/system/FlxLinkedList_HSX.cpp     
+[███████████████████████░] 97% 461/473 剩余 2s  src/flixel/math/FlxRandom_HSX.cpp      
+[███████████████████████░] 97% 463/473 剩余 1s  src/flixel/math/FlxRandom_HSX.cpp
+[███████████████████████░] 98% 467/473 剩余 1s  src/flixel/math/FlxRandom_HSX.cpp
+[███████████████████████░] 99% 469/473 剩余 1s  src/flixel/math/FlxRandom_HSX.cpp
+                                                                                                         
+  第 1/13 组完成: 473 个文件, 总进度 100%, 已用 1m10s, 剩余 0s
+编译完成: 473 个文件, 用时 1m18s (13 组)
+  本次重新编译 468 个文件 - 完整清单: O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/export/release/windows/obj/obj/msvc1964-nc/compiled_files.txt
+Link: ApplicationMain.exe
+  正在创建库 ApplicationMain.lib 和对象 ApplicationMain.exp
+无需编译: 所有目标文件都是最新的
+
+  == 构建摘要 ==
+  目标平台   : windows (release)
+  执行命令   : UPDATE, BUILD
+  输出目录   : export/release
+  可执行文件 : export/release/windows/bin/SeiunEngine.exe (36.3 MB)
+  耗时       : 2m26s
+  下一步     : haxelib run lime run windows
+

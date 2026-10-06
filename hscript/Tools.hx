@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C)2008-2017 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -111,7 +111,7 @@ class Tools {
 		}
 	}
 
-	public static function map(e: Expr, f: Expr->Expr) {
+	public static function map(e: Expr, f: Expr->Expr): Expr {
 		var edef = switch (expr(e)) {
 			case EConst(_), EIdent(_), EBreak, EContinue: expr(e);
 			case EVar(n, t, e, c, isPublic, isStatic): EVar(n, t, if (e != null) f(e) else null, c, isPublic, isStatic);
@@ -137,7 +137,7 @@ class Tools {
 			case ETernary(c, e1, e2): ETernary(f(c), f(e1), f(e2));
 			case ESwitch(e, cases, def): ESwitch(f(e), [
 					for (c in cases)
-						{values: [for (v in c.values) f(v)], expr: f(c.expr), ifExpr: f(c.ifExpr)}
+						{values: [for (v in c.values) f(v)], expr: f(c.expr), ifExpr: c.ifExpr == null ? null : f(c.ifExpr)}
 				], def == null ? null : f(def));
 			case EMeta(name, args, e): EMeta(name, args == null ? null : [for (a in args) f(a)], f(e));
 			case ECheckType(e, t): ECheckType(f(e), t);
@@ -150,7 +150,7 @@ class Tools {
 		return #if hscriptPos e.e #else e #end;
 	}
 
-	public static inline function mk(e: ExprDef, p: Expr) {
+	public static inline function mk(e: ExprDef, p: Expr): Expr {
 		#if hscriptPos
 		return {
 			e: e,

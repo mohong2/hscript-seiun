@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C)2008-2017 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -155,6 +155,8 @@ class Printer {
 	}
 
 	function addArgument(a: Argument) {
+		if (a.rest)
+			add("...");
 		if (a.opt)
 			add("?");
 		add(a.name);
@@ -171,22 +173,32 @@ class Printer {
 			case EConst(c):
 				switch (c) {
 					case CInt(i): add(i);
-					case CFloat(f): add(f);
+					case CFloat(f):
+						// Std.string(1.0) == "1", which would re-parse as CInt;
+						// keep the value a float by forcing a decimal point.
+						var fs = Std.string(f);
+						if (fs.indexOf(".") < 0 && fs.indexOf("e") < 0 && fs.indexOf("E") < 0)
+							fs += ".0";
+						add(fs);
 					case CString(s):
-						add('"');
-						add(s.split('"')
-							.join('\\"')
-							.split("\n")
-							.join("\\n")
-							.split("\r")
-							.join("\\r")
-							.split("\t")
-							.join("\\t"));
-						add('"');
+						add(quoteString(s));
 				}
 			case EIdent(v):
 				add(v);
 			case EVar(n, t, e, c, isPublic, isStatic):
+				// `typedef Name = SomeClass;` parses to EVar(Name, EDirectValue(class)).
+				// Re-emit it as a typedef so the printed form re-parses; the generic
+				// `<Internal Value ...>` form is not valid hscript source.
+				if (e != null && !isStatic && !isPublic && !c)
+					switch (Tools.expr(e)) {
+						case EDirectValue(value) if (Std.isOfType(value, Class)):
+							var className = Type.getClassName(cast value);
+							if (className != null) {
+								add("typedef " + n + " = " + className);
+								return;
+							}
+						default:
+					}
 				if (isStatic)
 					add("static ");
 				else if (isPublic)
@@ -222,7 +234,7 @@ class Printer {
 				add(tabs);
 				add("}");
 			case EField(e, f, s):
-				expr(e);
+				exprFieldBase(e);
 				if (s) {
 					add("?." + f);
 				} else {
@@ -233,7 +245,12 @@ class Printer {
 				add(" " + op + " ");
 				expr(e2);
 			case EUnop(op, pre, e):
-				if (pre) {
+				if (op == "...") {
+					// the parser stores spread arguments as a POSTFIX EUnop("...", false, e)
+					// even though the accepted source syntax is the prefix `...e`.
+					add("...");
+					expr(e);
+				} else if (pre) {
 					add(op);
 					expr(e);
 				} else {
@@ -347,7 +364,7 @@ class Printer {
 				}
 				add("}");
 			case EArray(e, index):
-				expr(e);
+				exprFieldBase(e);
 				add("[");
 				expr(index);
 				add("]");
@@ -408,10 +425,21 @@ class Printer {
 				add(" : ");
 				expr(e2);
 			case ESwitch(e, cases, def):
-				add("switch");
+				add("switch ");
 				expr(e);
 				add(" {");
 				incrementIndent();
+				// The parser represents an unguarded `case _:` BOTH as a wildcard case and
+				// as the hoisted defaultExpr. Emitting `default:` as well would produce two
+				// defaults on re-parse (rejected), so the wildcard case already carries it.
+				var hasWildcardCase = false;
+				for (c in cases)
+					if (c.ifExpr == null)
+						for (v in c.values)
+							switch (Tools.expr(v)) {
+								case EIdent("_"): hasWildcardCase = true;
+								default:
+							}
 				for (c in cases) {
 					add("\n");
 					add(tabs);
@@ -421,14 +449,29 @@ class Printer {
 						if (first)
 							first = false
 						else
-							add(", ");
-						expr(v);
+							// or-pattern alternatives (T1): one SwitchCase.values entry per alternative
+							add(" | ");
+						// A bare EBinop/ETernary value would re-parse differently once the
+						// parser supports or-patterns (case 1 | 2 vs case (1 | 2)); keep it atomic.
+						switch (Tools.expr(v)) {
+							case EBinop(_, _, _) | ETernary(_, _, _):
+								add("(");
+								expr(v);
+								add(")");
+							default:
+								expr(v);
+						}
+					}
+					// guarded case: the parser stores the guard in SwitchCase.ifExpr
+					if (c.ifExpr != null) {
+						add(" if ");
+						expr(c.ifExpr);
 					}
 					add(": ");
 					expr(c.expr);
 					add(";");
 				}
-				if (def != null) {
+				if (def != null && !hasWildcardCase) {
 					add("\n");
 					add(tabs);
 					add("default: ");
@@ -452,7 +495,7 @@ class Printer {
 							first = false
 						else
 							add(", ");
-						expr(e);
+						expr(a);
 					}
 					add(")");
 				}
@@ -462,7 +505,7 @@ class Printer {
 				add("(");
 				expr(e);
 				add(" : ");
-				addType(t);
+				type(t);
 				add(")");
 			case EEnum(name, params):
 				if (params.length == 0) {
@@ -494,6 +537,47 @@ class Printer {
 				add("using ");
 				add(name);
 		}
+	}
+
+	/**
+	 * Re-escapes a string literal so it parses back to exactly the same value.
+	 * Backslash and '$' matter as much as the quote/newline escapes: the parser
+	 * treats '\' as an escape introducer (unknown escapes are errors) and '$'
+	 * as string-interpolation start.
+	 */
+	/**
+	 * Prints the target of a postfix operator (`.`/`[]`). A block expression
+	 * returned by the array-comprehension desugaring must be parenthesised,
+	 * otherwise the parser drops the postfix operator and the meaning changes.
+	 */
+	function exprFieldBase(e: Expr) {
+		switch (Tools.expr(e)) {
+			case EBlock(_):
+				add("(");
+				expr(e);
+				add(")");
+			default:
+				expr(e);
+		}
+	}
+
+	static function quoteString(s: String): String {
+		var b = new StringBuf();
+		b.add('"');
+		for (i in 0...s.length) {
+			var c = s.charCodeAt(i);
+			switch (c) {
+				case 34: b.add('\\"'); // "
+				case 92: b.add('\\\\'); // backslash
+				case 36: b.add(String.fromCharCode(36) + String.fromCharCode(36)); // $ -> $$
+				case 10: b.add('\\n');
+				case 13: b.add('\\r');
+				case 9: b.add('\\t');
+				default: b.addChar(c);
+			}
+		}
+		b.add('"');
+		return b.toString();
 	}
 
 	inline function incrementIndent() {

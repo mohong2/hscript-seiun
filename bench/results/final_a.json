@@ -1,0 +1,15 @@
+{
+  "label": "final_a",
+  "hscriptPos": true,
+  "target": "eval",
+  "totalChars": 23280,
+  "totalParseMs": 20.717404945177691,
+  "totalExecMs": 41.463465751663371,
+  "errors": [],
+  "scripts": [
+    {"name": "gameplay", "chars": 7626, "parseMs": 6.378483772277832, "execMs": 1.8637137753622872},
+    {"name": "classheavy", "chars": 890, "parseMs": 0.78541082102102, "execMs": 12.524795532226563},
+    {"name": "expression", "chars": 523, "parseMs": 0.45959775040789347, "execMs": 24.21424388885498},
+    {"name": "shapes", "chars": 14241, "parseMs": 13.093912601470947, "execMs": 2.8607125552195423}
+  ]
+}

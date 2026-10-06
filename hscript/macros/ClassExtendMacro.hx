@@ -69,6 +69,57 @@ class ClassExtendMacro {
 		return false;
 	}
 
+	/** True when the member or one of its property accessors carries @:deprecated. */
+	static function hasDeprecatedMeta(metas:Array<MetadataEntry>):Bool {
+		if (metas == null) return false;
+		for (m in metas)
+			if (m != null && m.name == ":deprecated")
+				return true;
+		return false;
+	}
+
+	/**
+	 * Collects the names of every @:deprecated member that a generated
+	 * `super.<name>(...)` call could resolve to: the class's own declared
+	 * members plus the whole superclass chain.
+	 *
+	 * Property accessors are included, because `super.set_foo(...)` also
+	 * raises WDeprecated when the property `foo` is deprecated.
+	 */
+	static function collectDeprecatedNames(cl:ClassType, fields:Array<Field>):Map<String, Bool> {
+		var names = new Map<String, Bool>();
+		for (f in fields) {
+			if (f == null || !hasDeprecatedMeta(f.meta)) continue;
+			names.set(f.name, true);
+			switch (f.kind) {
+				case FVar(_, _) | FProp(_, _, _, _):
+					names.set("get_" + f.name, true);
+					names.set("set_" + f.name, true);
+				default:
+			}
+		}
+		var c:Null<ClassType> = cl;
+		var guard = 0;
+		while (c != null && guard++ < 100) {
+			try {
+				for (cf in c.fields.get()) {
+					if (cf == null || !hasDeprecatedMeta(cf.meta.get())) continue;
+					names.set(cf.name, true);
+					switch (cf.kind) {
+						case FVar(_, _):
+							names.set("get_" + cf.name, true);
+							names.set("set_" + cf.name, true);
+						default:
+					}
+				}
+				c = c.superClass != null ? c.superClass.t.get() : null;
+			} catch (e:Dynamic) {
+				break;
+			}
+		}
+		return names;
+	}
+
 	public static function build():Array<Field> {
 		var fields = Context.getBuildFields();
 		var clRef = Context.getLocalClass();
@@ -178,6 +229,10 @@ class ClassExtendMacro {
 
 			var definedFields:Array<String> = [];
 
+			// Members whose generated `super.<name>(...)` call would raise WDeprecated.
+			// See collectDeprecatedNames() for why the superclass chain is included.
+			var deprecatedNames = collectDeprecatedNames(cl, fields);
+
 			//trace(getModuleName(cl));
 
 			var hasNew = false;
@@ -217,6 +272,15 @@ class ClassExtendMacro {
 						// 影子类无法把 rest 形参安全转发给 super（会生成把 haxe.Rest<T> 当 T 用的调用），
 						// 因此跳过含 rest 形参的函数：不为它生成 override / _HX_SUPER__ 转发。
 						if (hasRestArg(fun.args))
+							continue;
+
+						// Do not generate the override/`_HX_SUPER__` pair for a @:deprecated
+						// super member: the generated `super.<name>(...)` call site carries this
+						// macro file's position, so the compiler would report WDeprecated
+						// against hscript/macros/ClassExtendMacro.hx instead of user code.
+						// Consequence: a script that overrides a deprecated member is no longer
+						// routed through the interpreter.
+						if (deprecatedNames.exists(f.name))
 							continue;
 
 						var overrideExpr:Expr;

@@ -1,0 +1,15 @@
+{
+  "label": "after_l",
+  "hscriptPos": true,
+  "target": "eval",
+  "totalChars": 23280,
+  "totalParseMs": 25.218535707366538,
+  "totalExecMs": 52.392038025319529,
+  "errors": [],
+  "scripts": [
+    {"name": "gameplay", "chars": 7626, "parseMs": 8.2926392555236816, "execMs": 2.7036899473608993},
+    {"name": "classheavy", "chars": 890, "parseMs": 1.0130940651407048, "execMs": 17.585432529449463},
+    {"name": "expression", "chars": 523, "parseMs": 0.64928071540698673, "execMs": 29.392719268798828},
+    {"name": "shapes", "chars": 14241, "parseMs": 15.263521671295166, "execMs": 2.7101962797103392}
+  ]
+}

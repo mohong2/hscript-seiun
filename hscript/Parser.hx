@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C)2008-2017 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -65,6 +65,7 @@ class TokenPos {
 #end
 
 class Parser {
+
 	// config / variables
 	public var line: Int;
 	public var opChars: String;
@@ -141,7 +142,13 @@ class Parser {
 	var tokenMax: Int;
 	var oldTokenMin: Int;
 	var oldTokenMax: Int;
-	var tokens: List<TokenPos>;
+	// PERF: the pending-token stack used to be a List/Array of freshly
+	// allocated TokenPos objects. It is now three parallel arrays plus an
+	// index, which removes one TokenPos allocation per pushed token.
+	var tokStack: Array<Token>;
+	var tokMinStack: Array<Int>;
+	var tokMaxStack: Array<Int>;
+	var tokDepth: Int;
 	#else
 	static inline var p1 = 0;
 	static inline var tokenMin = 0;
@@ -202,6 +209,76 @@ class Parser {
 			opPriority.set(x, x == "++" || x == "--" ? -1 : -2);
 	}
 
+	// ------------------------ PERF lookup tables ------------------------
+
+	/**
+		Names recognized by parseStructure. This Map is a cheap pre-filter: the
+		29-case string switch behind it costs about twice as much, and the
+		overwhelming majority of identifiers are not statement keywords.
+	**/
+	static var keywordNames: Map<String, Bool>;
+
+	static function isKeywordName(id: String): Bool {
+		var m = keywordNames;
+		if (m == null) {
+			m = new Map();
+			for (k in [
+				"if", "override", "static", "public", "private", "dynamic", "var", "final", "while", "do", "for",
+				"break", "continue", "else", "inline", "function", "return", "new", "throw", "cast", "untyped",
+				"try", "switch", "import", "class", "enum", "typedef", "using", "package"
+			])
+				m.set(k, true);
+			keywordNames = m;
+		}
+		return m.exists(id);
+	}
+
+	// The caches below are lazily initialised and never mutated afterwards:
+	// on a threaded host two threads may build the same table twice, which is
+	// harmless (each hands out equivalent immutable values).
+	//
+	// Single-character tokens repeat constantly. Enums are immutable values, so
+	// one shared instance per character can be handed out instead of allocating
+	// (and slicing) a fresh one for every occurrence.
+	static var singleIdTokens: Array<Token>;
+	static var singleOpTokens: Array<Token>;
+	static var spreadToken: Token;
+	static var genericOpenToken: Token;
+
+	static function identToken(first:Int, src:String, start:Int, end:Int):Token {
+		if (end - start == 1) {
+			var a = singleIdTokens;
+			if (a == null) {
+				a = [];
+				singleIdTokens = a;
+			}
+			var t = a[first];
+			if (t == null) {
+				t = TId(String.fromCharCode(first));
+				a[first] = t;
+			}
+			return t;
+		}
+		return TId(src.substring(start, end));
+	}
+
+	static function opToken(first:Int, src:String, start:Int, end:Int):Token {
+		if (end - start == 1) {
+			var a = singleOpTokens;
+			if (a == null) {
+				a = [];
+				singleOpTokens = a;
+			}
+			var t = a[first];
+			if (t == null) {
+				t = TOp(src.substring(start, end));
+				a[first] = t;
+			}
+			return t;
+		}
+		return TOp(src.substring(start, end));
+	}
+
 	public inline function error(err, pmin, pmax) {
 		if (!resumeErrors)
 			#if hscriptPos
@@ -223,7 +300,10 @@ class Parser {
 		readPos = 0;
 		tokenMin = oldTokenMin = 0;
 		tokenMax = oldTokenMax = 0;
-		tokens = new List();
+		tokStack = [];
+		tokMinStack = [];
+		tokMaxStack = [];
+		tokDepth = 0;
 		#elseif haxe3
 		tokens = new haxe.ds.GenericStack<Token>();
 		#else
@@ -264,9 +344,27 @@ class Parser {
 
 	inline function push(tk) {
 		#if hscriptPos
-		tokens.push(new TokenPos(tk, tokenMin, tokenMax));
+		tokStack[tokDepth] = tk;
+		tokMinStack[tokDepth] = tokenMin;
+		tokMaxStack[tokDepth] = tokenMax;
+		tokDepth++;
 		tokenMin = oldTokenMin;
 		tokenMax = oldTokenMax;
+		#else
+		tokens.add(tk);
+		#end
+	}
+
+	/**
+		Push a token with explicit source positions. Used when the tokenizer has
+		to split an operator token (for example >> into > and >).
+	**/
+	inline function pushAt(tk, mn:Int, mx:Int) {
+		#if hscriptPos
+		tokStack[tokDepth] = tk;
+		tokMinStack[tokDepth] = mn;
+		tokMaxStack[tokDepth] = mx;
+		tokDepth++;
 		#else
 		tokens.add(tk);
 		#end
@@ -286,7 +384,9 @@ class Parser {
 
 	function maybe(tk) {
 		var t = token();
-		if (Type.enumEq(t, tk))
+		// PERF: nullary tokens compare by value with ==, avoiding the
+		// reflective Type.enumEq call on the common path.
+		if (t == tk || Type.enumEq(t, tk))
 			return true;
 		push(t);
 		return false;
@@ -374,16 +474,26 @@ class Parser {
 
 	function parseFullExpr(exprs: Array<Expr>) {
 		var e = parseExpr();
-		if (!expr(e).match(EIgnore(_)))
+		// PERF: a switch avoids the anonymous-pattern value that
+		// ExprDef.match(EIgnore(_)) builds on every statement.
+		var isIgnore = false;
+		var isBlockStmt = false;
+		if (e != null) {
+			switch (expr(e)) {
+				case EIgnore(_): isIgnore = true;
+				case EBlock(_): isBlockStmt = true;
+				default:
+			}
+		}
+		if (!isIgnore)
 			exprs.push(e);
 
 		// destructuring declarations (`var [a, b] = arr;`) desugar into an
 		// EBlock of plain EVars; splice them into the statement list so the
 		// variables are declared in the enclosing scope, not a synthetic block
-		if (expr(e).match(EBlock(_))) {
-			var inner = Tools.expr(e);
+		if (isBlockStmt) {
 			var list:Array<Expr> = null;
-			switch (inner) {
+			switch (expr(e)) {
 				case EBlock(l): list = l;
 				default:
 			}
@@ -405,9 +515,9 @@ class Parser {
 
 		var tk = token();
 		// this is a hack to support var a,b,c; with a single EVar
-		while (tk == TComma && e != null && expr(e).match(EVar(_))) {
+		while (tk == TComma && e != null && isVarExpr(e)) {
 			e = parseStructure("var"); // next variable
-			if (!expr(e).match(EIgnore(_)))
+			if (e != null && !isIgnoreExpr(e))
 				exprs.push(e);
 			tk = token();
 		}
@@ -417,6 +527,312 @@ class Parser {
 				push(tk);
 			else
 				unexpected(tk);
+		}
+	}
+
+	inline function isIgnoreExpr(e:Expr):Bool {
+		return switch (expr(e)) {
+			case EIgnore(_): true;
+			default: false;
+		}
+	}
+
+	inline function isVarExpr(e:Expr):Bool {
+		return switch (expr(e)) {
+			case EVar(_, _, _, _, _, _): true;
+			default: false;
+		}
+	}
+
+	// ---------------------- destructuring patterns ----------------------
+
+	/**
+		Parses var [a, b] = e; and var {x: y, z = 1} = e;.
+
+		The AST is frozen, so every pattern is desugared into plain EVar nodes.
+		The source expression is evaluated exactly once into a hidden temporary
+		(__destr_<n>) and every binding reads from that temporary:
+
+			var [a, b] = arr;        ->  var __destr_0 = arr;
+			                             var a = __destr_0[0];
+			                             var b = __destr_0[1];
+			var {x: y} = obj;        ->  var __destr_1 = obj;  var y = __destr_1.x;
+			var {x = 1} = obj;       ->  var __destr_2 = obj;
+			                             var __destr_3 = __destr_2.x;
+			                             var x = __destr_3 == null ? 1 : __destr_3;
+			var [a, ...rest] = arr;  ->  ... var rest = __destr_4.slice(1);
+			var [[a],[b]] = pairs;   ->  var a = __destr_5[0][0];
+			                             var b = __destr_5[1][0];
+	**/
+	function parseDestrDecl(isConst:Bool, p1:Int):Expr {
+		var tmp = "__destr_" + (uid++);
+		var bindings:Array<Expr> = [];
+		parsePatternAt(mk(EIdent(tmp), p1), bindings, isConst, p1);
+		ensureToken(TOp("="));
+		var value = parseExpr();
+		var exprs:Array<Expr> = [mk(EVar(tmp, null, value, isConst, nextIsPublic, nextIsStatic), p1)];
+		for (b in bindings)
+			exprs.push(b);
+		nextIsPublic = false;
+		nextIsStatic = false;
+		return mk(EBlock(exprs), p1);
+	}
+
+	/** Consumes [ ... ] or { ... } and appends one EVar per binding. */
+	function parsePatternAt(access:Expr, out:Array<Expr>, isConst:Bool, p1:Int):Void {
+		var before = out.length;
+		var tk = token();
+		switch (tk) {
+			case TBkOpen:
+				parseArrayPattern(access, out, isConst, p1);
+			case TBrOpen:
+				parseObjectPattern(access, out, isConst, p1);
+			default:
+				unexpected(tk);
+		}
+		// `var [] = a;` / `var {} = o;` bind nothing: always a mistake
+		if (out.length == before)
+			error(ECustom("Empty destructuring pattern"), tokenMin, tokenMax);
+	}
+
+	/**
+		Array pattern: [a, b], [a, ...rest], [[a],[b]], elided slots.
+		Every element reads access[index].
+	**/
+	function parseArrayPattern(access:Expr, out:Array<Expr>, isConst:Bool, p1:Int):Void {
+		var index = 0;
+		while (true) {
+			var tk = token();
+			switch (tk) {
+				case TBkClose:
+					return;
+				case TComma:
+					index++; // elided element
+					continue;
+				case TOp("..."):
+					var restName = getIdent();
+					var slice = mk(ECall(mk(EField(access, "slice", false), p1), [mk(EConst(CInt(index)), p1)]), p1);
+					out.push(mk(EVar(restName, null, slice, isConst, nextIsPublic, nextIsStatic), p1));
+					ensure(TBkClose);
+					return;
+				case TId(name):
+					out.push(mk(EVar(name, null, mk(EArray(access, mk(EConst(CInt(index)), p1)), p1), isConst, nextIsPublic, nextIsStatic), p1));
+				case TBkOpen, TBrOpen:
+					push(tk);
+					parsePatternAt(mk(EArray(access, mk(EConst(CInt(index)), p1)), p1), out, isConst, p1);
+				default:
+					unexpected(tk);
+			}
+			index++;
+			var t2 = token();
+			switch (t2) {
+				case TBkClose:
+					return;
+				case TComma:
+				default:
+					unexpected(t2);
+			}
+		}
+	}
+
+	/**
+		Object pattern: {x}, {x: y} (rename), {x = 1} (default), {x: [a, b]} (nested).
+		Every field reads access.name.
+	**/
+	function parseObjectPattern(access:Expr, out:Array<Expr>, isConst:Bool, p1:Int):Void {
+		while (true) {
+			var tk = token();
+			switch (tk) {
+				case TBrClose:
+					return;
+				case TComma:
+					continue;
+				case TId(name):
+					var fieldAccess = mk(EField(access, name, false), p1);
+					var t2 = token();
+					switch (t2) {
+						case TDoubleDot:
+							// rename (x: y) or nested pattern (x: [a, b])
+							var t3 = token();
+							switch (t3) {
+								case TId(alias):
+									var t4 = token();
+									if (Type.enumEq(t4, TOp("="))) {
+										bindDefault(alias, fieldAccess, parseExpr(), out, isConst, p1);
+									} else {
+										push(t4);
+										out.push(mk(EVar(alias, null, fieldAccess, isConst, nextIsPublic, nextIsStatic), p1));
+									}
+								case TBkOpen, TBrOpen:
+									push(t3);
+									parsePatternAt(fieldAccess, out, isConst, p1);
+								default:
+									unexpected(t3);
+							}
+						case TOp("="):
+							bindDefault(name, fieldAccess, parseExpr(), out, isConst, p1);
+						case TComma:
+							out.push(mk(EVar(name, null, fieldAccess, isConst, nextIsPublic, nextIsStatic), p1));
+						case TBrClose:
+							out.push(mk(EVar(name, null, fieldAccess, isConst, nextIsPublic, nextIsStatic), p1));
+							return;
+						default:
+							unexpected(t2);
+					}
+				default:
+					unexpected(tk);
+			}
+		}
+	}
+
+	/**
+		{x = 1}: read the source slot once into its own temporary (so the source
+		expression is never evaluated twice) and fall back to the default only
+		when the value is null.
+	**/
+	function bindDefault(name:String, access:Expr, def:Expr, out:Array<Expr>, isConst:Bool, p1:Int):Void {
+		var tv = "__destr_" + (uid++);
+		out.push(mk(EVar(tv, null, access, true, false, false), p1));
+		var isNull = mk(EBinop("==", mk(EIdent(tv), p1), mk(EIdent("null"), p1)), p1);
+		var picked = mk(ETernary(isNull, def, mk(EIdent(tv), p1)), p1);
+		out.push(mk(EVar(name, null, picked, isConst, nextIsPublic, nextIsStatic), p1));
+	}
+
+	/**
+		Assignment form (statement or expression position):
+			[a, b] = f();   {x} = obj;   [a, ...rest] = arr;
+		Desugared to var t = rhs; a = t[0]; b = t[1]; inside an EBlock whose last
+		expression is the temporary, so it still yields the source value.
+	**/
+	function isPatternAssignTarget(e:Expr):Bool {
+		return switch (expr(e)) {
+			case EArrayDecl(_), EObject(_): true;
+			default: false;
+		}
+	}
+
+	function desugarPatternAssign(target:Expr, value:Expr, p1:Int):Expr {
+		var tmp = "__destr_" + (uid++);
+		var stmts:Array<Expr> = [mk(EVar(tmp, null, value, false, false, false), p1)];
+		assignPattern(target, mk(EIdent(tmp), p1), stmts, p1);
+		stmts.push(mk(EIdent(tmp), p1));
+		return mk(EBlock(stmts), p1, pmax(value));
+	}
+
+	function assignPattern(target:Expr, access:Expr, out:Array<Expr>, p1:Int):Void {
+		switch (expr(target)) {
+			case EIdent(_), EField(_, _, _):
+				out.push(mk(EBinop("=", target, access), p1));
+			case EArrayDecl(el):
+				var i = 0;
+				for (t in el) {
+					switch (expr(t)) {
+						case EUnop("...", _, inner):
+							var slice = mk(ECall(mk(EField(access, "slice", false), p1), [mk(EConst(CInt(i)), p1)]), p1);
+							assignPattern(inner, slice, out, p1);
+							return;
+						default:
+					}
+					assignPattern(t, mk(EArray(access, mk(EConst(CInt(i)), p1)), p1), out, p1);
+					i++;
+				}
+			case EObject(fl):
+				for (f in fl)
+					assignPattern(f.e, mk(EField(access, f.name, false), p1), out, p1);
+			default:
+				error(ECustom("Invalid destructuring assignment target"), pmin(target), pmax(target));
+		}
+	}
+
+	// ------------------- or-patterns / comprehensions -------------------
+
+	/**
+		Case patterns: an unparenthesised top-level | chain is a list of
+		alternatives, so case 1 | 2: matches either. A parenthesised
+		case (1|2): stays one EParent value, i.e. the bitwise OR.
+	**/
+	function flattenOrPattern(e:Expr, out:Array<Expr>):Void {
+		switch (expr(e)) {
+			case EBinop("|", e1, e2):
+				flattenOrPattern(e1, out);
+				flattenOrPattern(e2, out);
+			default:
+				out.push(e);
+		}
+	}
+
+	/** True when a comprehension body is a k => v pair. */
+	function isMapComprBody(e:Expr):Bool {
+		if (e == null)
+			return false;
+		return switch (expr(e)) {
+			case EFor(_, _, e2, _): isMapComprBody(e2);
+			case EWhile(_, e2): isMapComprBody(e2);
+			case EDoWhile(_, e2): isMapComprBody(e2);
+			case EIf(_, e1, e2) if (e2 == null): isMapComprBody(e1);
+			case EBlock([e2]): isMapComprBody(e2);
+			case EParent(e2): isMapComprBody(e2);
+			case EBinop("=>", _, _): true;
+			default: false;
+		}
+	}
+
+	/** Like mapCompr, but fills a Map through set(k, v) instead of push. */
+	function mapComprSet(tmp:String, e:Expr) {
+		if (e == null)
+			return null;
+		var edef = switch (expr(e)) {
+			case EFor(v, it, e2, ithv):
+				EFor(v, it, mapComprSet(tmp, e2), ithv);
+			case EWhile(cond, e2):
+				EWhile(cond, mapComprSet(tmp, e2));
+			case EDoWhile(cond, e2):
+				EDoWhile(cond, mapComprSet(tmp, e2));
+			case EIf(cond, e1, e2) if (e2 == null):
+				EIf(cond, mapComprSet(tmp, e1), null);
+			case EBlock([e2]):
+				EBlock([mapComprSet(tmp, e2)]);
+			case EParent(e2):
+				EParent(mapComprSet(tmp, e2));
+			case EBinop("=>", k, v):
+				ECall(mk(EField(mk(EIdent(tmp), pmin(e), pmax(e)), "set", false), pmin(e), pmax(e)), [k, v]);
+			default:
+				ECall(mk(EField(mk(EIdent(tmp), pmin(e), pmax(e)), "push", false), pmin(e), pmax(e)), [e]);
+		}
+		return mk(edef, pmin(e), pmax(e));
+	}
+
+	/**
+		Erases an optional <T, U> type-parameter list after a function name
+		(function f<T>(x:T):T). Type parameters are a compile-time concept.
+	**/
+	function skipGenericParams():Void {
+		var lt = genericOpenToken;
+		if (lt == null)
+			lt = genericOpenToken = TOp("<");
+		var tk = token();
+		if (!Type.enumEq(tk, lt)) {
+			push(tk);
+			return;
+		}
+		var depth = 1;
+		while (depth > 0) {
+			var t = token();
+			switch (t) {
+				case TOp(op) if (op.charCodeAt(0) == "<".code):
+					var opens = 0;
+					while (opens < op.length && op.charCodeAt(opens) == "<".code)
+						opens++;
+					depth += opens;
+				case TOp(op) if (op.charCodeAt(0) == ">".code):
+					var closes = 0;
+					while (closes < op.length && op.charCodeAt(closes) == ">".code)
+						closes++;
+					depth -= closes;
+				case TEof:
+					unexpected(t);
+				default:
+			}
 		}
 	}
 
@@ -443,7 +859,7 @@ class Parser {
 				break;
 		}
 		var tk2 = token();
-		if (Type.enumEq(tk2, TDoubleDot)) {
+		if (tk2 == TDoubleDot) {
 			// `key: value` — the `:` is consumed here
 			fl.push({name: id, e: parseExpr()});
 		} else {
@@ -592,14 +1008,33 @@ class Parser {
 				var a = new Array();
 				tk = token();
 				while (tk != TBkClose && (!resumeErrors || tk != TEof)) {
-					push(tk);
-					a.push(parseExpr());
+					var st = spreadToken;
+					if (st == null)
+						st = spreadToken = TOp("...");
+					if (Type.enumEq(tk, st)) {
+						// spread element; only meaningful as a destructuring target
+						// (`[a, ...rest] = arr;`), consumed by the assignment desugaring
+						var arg = parseExpr();
+						a.push(mk(EUnop("...", false, arg), pmin(arg)));
+					} else {
+						push(tk);
+						a.push(parseExpr());
+					}
 					tk = token();
 					if (tk == TComma)
 						tk = token();
 				}
 				if (a.length == 1 && a[0] != null)
 					switch (expr(a[0])) {
+						case EFor(_, _, _, _) if (isMapComprBody(a[0])):
+							// [for (k => v in map) k => v] builds a Map
+							var mtmp = "__map_" + (uid++);
+							var me = mk(EBlock([
+								mk(EVar(mtmp, null, mk(ENew("Map", []), p1), false, false, false), p1),
+								mapComprSet(mtmp, a[0]),
+								mk(EIdent(mtmp), p1),
+							]), p1);
+							return parseExprNext(me);
 						case EFor(_), EWhile(_), EDoWhile(_):
 							var tmp = "__a_" + (uid++);
 							var e = mk(EBlock([
@@ -614,6 +1049,11 @@ class Parser {
 			case TMeta(id) if (allowMetadata):
 				var args = parseMetaArgs();
 				return mk(EMeta(id, args, parseExpr()), p1);
+			case TSemicolon:
+				// bare empty statement (`;;`) is a no-op, like Haxe. EIgnore(true)
+				// makes parseFullExpr treat it as block-like and hand the following
+				// token back instead of demanding a semicolon.
+				return mk(EIgnore(true));
 			default:
 				return unexpected(tk);
 		}
@@ -695,15 +1135,19 @@ class Parser {
 		}
 	}
 
-	function makeBinop(op, e1, e) {
+	function makeBinop(op, e1, e, prio) {
+		// PERF: the caller already looked this operator's priority up in
+		// opPriority and passes it in; only opRightAssoc (public API, so it must
+		// keep being read) still needs a query.
+		var rightAssoc = opRightAssoc.exists(op);
 		if (e == null && resumeErrors)
 			return mk(EBinop(op, e1, e), pmin(e1), pmax(e1));
 		return switch (expr(e)) {
 			case EBinop(op2, e2, e3):
-				if (opPriority.get(op) <= opPriority.get(op2)
-					&& !opRightAssoc.exists(op)) mk(EBinop(op2, makeBinop(op, e1, e2), e3), pmin(e1), pmax(e3)); else mk(EBinop(op, e1, e), pmin(e1), pmax(e));
+				if (prio <= opPriority.get(op2)
+					&& !rightAssoc) mk(EBinop(op2, makeBinop(op, e1, e2, prio), e3), pmin(e1), pmax(e3)); else mk(EBinop(op, e1, e), pmin(e1), pmax(e));
 			case ETernary(e2, e3, e4):
-				if (opRightAssoc.exists(op)) mk(EBinop(op, e1, e), pmin(e1), pmax(e)); else mk(ETernary(makeBinop(op, e1, e2), e3, e4), pmin(e1), pmax(e));
+				if (rightAssoc) mk(EBinop(op, e1, e), pmin(e1), pmax(e)); else mk(ETernary(makeBinop(op, e1, e2, prio), e3, e4), pmin(e1), pmax(e));
 			default:
 				mk(EBinop(op, e1, e), pmin(e1), pmax(e));
 		}
@@ -713,6 +1157,11 @@ class Parser {
 		#if hscriptPos
 		var p1 = tokenMin;
 		#end
+		// PERF: identifiers that are not statement keywords fall to the default
+		// branch below. This Map pre-filter is about half the cost of running
+		// the 29-case string switch for every identifier in the source.
+		if (!isKeywordName(id))
+			return null;
 		return switch (id) {
 			case "if":
 				ensure(TPOpen);
@@ -784,42 +1233,10 @@ class Parser {
 			case "var", "final":
 				var isConst = id == "final";
 				var tk = token();
-				if (Type.enumEq(tk, TBkOpen) || Type.enumEq(tk, TBrOpen)) {
-					// destructuring declaration (Haxe 4):
-					//   var [a, b] = arr;   → tmp = arr; var a = tmp[0]; var b = tmp[1];
-					//   var {x, y} = obj;   → tmp = obj; var x = tmp.x; var y = tmp.y;
-					var isArray = Type.enumEq(tk, TBkOpen);
-					var names:Array<String> = [];
-					while (true) {
-						var t2 = token();
-						switch (t2) {
-							case TId(n):
-								names.push(n);
-							case TComma:
-							case TBkClose | TBrClose:
-								break;
-							default:
-								unexpected(t2);
-								break;
-						}
-						if (Type.enumEq(t2, isArray ? TBkClose : TBrClose))
-							break;
-					}
-					ensureToken(TOp("="));
-					var value = parseExpr();
-					var tmp = "__destr_" + (uid++);
-					var exprs = [mk(EVar(tmp, null, value, isConst, nextIsPublic, nextIsStatic), p1)];
-					var index = 0;
-					for (n in names) {
-						var access:Expr = isArray
-							? mk(EArray(mk(EIdent(tmp)), mk(EConst(CInt(index)))), p1)
-							: mk(EField(mk(EIdent(tmp)), n, false), p1);
-						exprs.push(mk(EVar(n, null, access, isConst, nextIsPublic, nextIsStatic), p1));
-						index++;
-					}
-					nextIsPublic = false;
-					nextIsStatic = false;
-					return mk(EBlock(exprs), p1);
+				if (tk == TBkOpen || tk == TBrOpen) {
+					// destructuring declaration, desugared by parseDestrDecl
+					push(tk);
+					return parseDestrDecl(isConst, p1);
 				}
 				push(tk);
 				var ident = getIdent();
@@ -850,6 +1267,22 @@ class Parser {
 				mk(EDoWhile(econd, e), p1, pmax(econd));
 			case "for":
 				ensure(TPOpen);
+				var t0 = token();
+				if (t0 == TBkOpen || t0 == TBrOpen) {
+					// for ([a, b] in pairs) ->
+					//   for (__destr_N in pairs) { var a = __destr_N[0]; var b = __destr_N[1]; <body> }
+					push(t0);
+					var dtmp = "__destr_" + (uid++);
+					var dbind:Array<Expr> = [];
+					parsePatternAt(mk(EIdent(dtmp), p1), dbind, false, p1);
+					ensureToken(TId("in"));
+					var diter = parseExpr();
+					ensure(TPClose);
+					var dbody = parseExpr();
+					dbind.push(dbody);
+					return mk(EFor(dtmp, diter, mk(EBlock(dbind), p1), null), p1, pmax(dbody));
+				}
+				push(t0);
 				var ithv:String = null;
 				var vname = getIdent();
 				var tk = token();
@@ -879,6 +1312,8 @@ class Parser {
 					case TId(id): name = id;
 					default: push(tk);
 				}
+				if (name != null)
+					skipGenericParams();
 				var inf = parseFunctionDecl();
 				mk(EFunction(inf.args, inf.body, name, inf.ret, nextIsPublic, nextIsStatic, nextIsOverride), p1, pmax(inf.body));
 			case "return":
@@ -930,7 +1365,7 @@ class Parser {
 						}
 					}
 					tk = token(); // the consumed `(` of the argument list
-					if (!Type.enumEq(tk, TPOpen))
+					if (tk != TPOpen)
 						unexpected(tk);
 				} else {
 					// no generics: tk is the first argument (or the closing `)`)
@@ -943,7 +1378,7 @@ class Parser {
 				mk(EThrow(e), p1, pmax(e));
 			case "cast":
 				var tk = token();
-				if (Type.enumEq(tk, TPOpen)) {
+				if (tk == TPOpen) {
 					// checked cast: `cast (expr, Type)`
 					var e = parseExpr();
 					ensure(TComma);
@@ -962,12 +1397,16 @@ class Parser {
 				ensureToken(TId("catch"));
 				ensure(TPOpen);
 				var vname = getIdent();
-				ensure(TDoubleDot);
+				// `catch (e)` without a type annotation is valid Haxe
 				var t = null;
-				if (allowTypes)
-					t = parseType();
-				else
-					ensureToken(TId("Dynamic"));
+				var tcolon = token();
+				if (tcolon == TDoubleDot) {
+					if (allowTypes)
+						t = parseType();
+					else
+						ensureToken(TId("Dynamic"));
+				} else
+					push(tcolon);
 				ensure(TPClose);
 				var ec = parseExpr();
 				mk(ETry(e, vname, t, ec), p1, pmax(ec));
@@ -983,7 +1422,9 @@ class Parser {
 							cases.push(c);
 							while (true) {
 								var e = parseExpr();
-								c.values.push(e);
+						// an unparenthesised top-level `|` splits into alternatives;
+						// `case (1|2):` stays a single parenthesised bitwise OR
+						flattenOrPattern(e, c.values);
 								tk = token();
 								switch (tk) {
 									case TComma:
@@ -1024,11 +1465,16 @@ class Parser {
 							c.expr = if (exprs.length == 1) exprs[0]; else if (exprs.length == 0) mk(EBlock([]), tokenMin,
 								tokenMin); else mk(EBlock(exprs), pmin(exprs[0]), pmax(exprs[exprs.length - 1]));
 
-							for (i in c.values) {
-								switch Tools.expr(i) {
-									case EIdent("_"):
-										def = c.expr;
-									case _:
+							// `case _ if (cond):` is an ordinary guarded wildcard case: only an
+							// unguarded bare `_` is hoisted to defaultExpr, otherwise a later
+							// real `default:` would be rejected.
+							if (c.ifExpr == null) {
+								for (i in c.values) {
+									switch Tools.expr(i) {
+										case EIdent("_"):
+											def = c.expr;
+										case _:
+									}
 								}
 							}
 						case TId("default"):
@@ -1094,7 +1540,13 @@ class Parser {
 						null;
 					}
 				 */
-				mk(EImport(path.join('.'), asStr));
+				if (star && asStr != null)
+					error(ECustom("Wildcard imports cannot be aliased." + asErr), readPos, readPos);
+				// `import haxe.ds.*;` -> EImport("haxe.ds.*", null): the frozen
+				// EImport(v, as) has no wildcard flag, so the package prefix is
+				// encoded by the trailing ".*". Module-level DImport keeps its
+				// own `everything` flag.
+				mk(EImport(star ? path.join('.') + ".*" : path.join('.'), asStr));
 
 			case "class":
 				var tk = token();
@@ -1281,7 +1733,8 @@ class Parser {
 					unexpected(tk);
 				}
 
-				if (opPriority.get(op) == -1) {
+				var opPrio = opPriority.get(op);
+				if (opPrio == -1) {
 					if (isBlock(e1) || switch (expr(e1)) {
 							case EParent(_): true;
 							default: false;
@@ -1291,7 +1744,9 @@ class Parser {
 						}
 					return parseExprNext(mk(EUnop(op, false, e1), pmin(e1)));
 				}
-				return makeBinop(op, e1, parseExpr());
+				if (op == "=" && isPatternAssignTarget(e1))
+					return desugarPatternAssign(e1, parseExpr(), pmin(e1));
+				return makeBinop(op, e1, parseExpr(), opPrio);
 			case TDot | TQuestionDot:
 				var field = getIdent();
 				return parseExprNext(mk(EField(e1, field, tk == TQuestionDot), pmin(e1)));
@@ -1390,8 +1845,18 @@ class Parser {
 		var t = token();
 		switch (t) {
 			case TId(v):
-				push(t);
-				var path = parsePath();
+				// PERF: collect the dotted path straight away instead of pushing the
+				// identifier back for parsePath() to read (and pop) again.
+				var path = [v];
+				while (true) {
+					var t2 = token();
+					if (t2 == TDot)
+						path.push(getIdent());
+					else {
+						push(t2);
+						break;
+					}
+				}
 				var name = path.pop();
 				var params = null;
 				t = token();
@@ -1408,11 +1873,7 @@ class Parser {
 										if (op == ">")
 											break;
 										if (op.charCodeAt(0) == ">".code) {
-											#if hscriptPos
-											tokens.add(new TokenPos(TOp(op.substr(1)), tokenMax - op.length - 1, tokenMax));
-											#else
-											tokens.add(TOp(op.substr(1)));
-											#end
+											pushAt(TOp(op.substr(1)), tokenMax - op.length - 1, tokenMax);
 											break;
 										}
 									default:
@@ -1743,6 +2204,7 @@ class Parser {
 					access.push(AMacro);
 				case "function":
 					var name = getIdent();
+					skipGenericParams();
 					var inf = parseFunctionDecl();
 					return {
 						name: name,
@@ -1801,7 +2263,37 @@ class Parser {
 		return StringTools.fastCodeAt(input, readPos++);
 	}
 
-	function readString(until) {
+	function readString(until:Int) {
+		// PERF fast path: the vast majority of string literals contain neither an
+		// escape nor a `$`. Scan for the terminator first and return one
+		// substring, instead of allocating a StringBuf, a flushLit closure and a
+		// fresh string per accumulated character.
+		var start = readPos;
+		var src = input;
+		var len = src.length;
+		var p = start;
+		var simple = false;
+		while (p < len) {
+			var fc = StringTools.fastCodeAt(src, p);
+			if (fc == until) {
+				simple = true;
+				break;
+			}
+			// backslash (92), dollar (36) or newline (10): full slow path
+			if (fc == 92 || fc == 36 || fc == 10)
+				break;
+			p++;
+		}
+		if (simple) {
+			readPos = p + 1;
+			interpParts = null;
+			return src.substring(start, p);
+		}
+		return readStringSlow(until, start);
+	}
+
+	function readStringSlow(until:Int, start:Int) {
+		readPos = start;
 		var c = 0;
 		var b = new StringBuf();
 		var esc = false;
@@ -1885,7 +2377,7 @@ class Parser {
 					flushLit();
 					var e = parseExpr();
 					var tk = token();
-					if (!Type.enumEq(tk, TBrClose))
+					if (tk != TBrClose)
 						unexpected(tk);
 					parts.push(e);
 				} else if (n >= 0 && idents[n]) {
@@ -1921,25 +2413,31 @@ class Parser {
 		return b.toString();
 	}
 
-	function token() {
+	function token():Token {
 	#if hscriptPos
-	var t = tokens.pop();
-	if (t != null) {
-		tokenMin = t.min;
-		tokenMax = t.max;
-		return t.t;
+	if (tokDepth > 0) {
+		tokDepth--;
+		tokenMin = tokMinStack[tokDepth];
+		tokenMax = tokMaxStack[tokDepth];
+		return tokStack[tokDepth];
 	}
 	oldTokenMin = tokenMin;
 	oldTokenMax = tokenMax;
 	tokenMin = (this.char < 0) ? readPos : readPos - 1;
-	var t = _token();
+	var tk = _token();
 	tokenMax = (this.char < 0) ? readPos - 1 : readPos - 2;
-	return t;
-	} function _token() {
+	return tk;
 	#else
 	if (!tokens.isEmpty())
 		return tokens.pop();
+	return _token();
 	#end
+	}
+
+	// PERF: _token used to be a local function declared inside token(), which
+	// made the eval target build a closure on every single token() call. It is
+	// an ordinary method now.
+	function _token():Token {
 		var char;
 		if (this.char < 0)
 			char = readChar();
@@ -2186,36 +2684,45 @@ class Parser {
 					invalidChar(char);
 				default:
 					if (ops[char]) {
-						var op = String.fromCharCode(char);
+						// PERF: slice the operator out of the source instead of building it
+						// one String.fromCharCode at a time; single-character operators
+						// reuse a cached token.
+						var opStart = readPos - 1;
+						var opChar0 = char;
 						while (true) {
 							char = readChar();
 							if (StringTools.isEof(char))
 								char = 0;
 							if (!ops[char]) {
 								this.char = char;
-								return TOp(op);
+								return opToken(opChar0, input, opStart, readPos - 1);
 							}
-							var pop = op;
-							op += String.fromCharCode(char);
+							var op = input.substring(opStart, readPos);
+							var pop = input.substring(opStart, readPos - 1);
 							if (!opPriority.exists(op) && opPriority.exists(pop)) {
 								if (op == "//" || op == "/*")
 									return tokenComment(op, char);
 								this.char = char;
-								return TOp(pop);
+								return opToken(opChar0, input, opStart, readPos - 1);
 							}
 						}
 					}
 					if (idents[char]) {
-						var id = String.fromCharCode(char);
+						// PERF: identifiers are sliced out of the source instead of being
+						// built one String.fromCharCode at a time; single-character
+						// identifiers reuse a cached token.
+						var idChar0 = char;
+						var idStart = readPos - 1;
 						while (true) {
 							char = readChar();
-							if (StringTools.isEof(char))
-								char = 0;
+							if (StringTools.isEof(char)) {
+								this.char = 0;
+								return identToken(idChar0, input, idStart, readPos - 1);
+							}
 							if (!idents[char]) {
 								this.char = char;
-								return TId(id);
+								return identToken(idChar0, input, idStart, readPos - 1);
 							}
-							id += String.fromCharCode(char);
 						}
 					}
 					invalidChar(char);

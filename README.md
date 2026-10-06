@@ -1,4 +1,4 @@
-﻿# hscript-seiun
+# hscript-seiun
 
 [![CI](https://github.com/mohong2/hscript-seiun/actions/workflows/main.yml/badge.svg)](https://github.com/mohong2/hscript-seiun/actions/workflows/main.yml)
 
@@ -67,10 +67,62 @@ Packages start at `hscript`: the merged runtime lives in `hscript.*`
 - **Static members via the class name**: `M.staticMethod()`, `S.staticVar`,
   `S.staticVar = 9` — static fields are evaluated once at class declaration
 - **Switch guards**: `case v if (v > 3):` binds `v` to the switched value
+- **Or-patterns** (Haxe 4.2+ style): `case 1 | 2:`, `case "a" | "b" if (cond):`.
+  A parenthesised bitwise OR still works: `case (1 | 2):`
+- **Guarded wildcard cases**: `case _ if (cond):`
+- **Destructuring extensions**: rest (`var [a, ...rest] = arr;`), rename
+  (`var {x: y} = obj;`), defaults (`var {x = 1} = obj;`), nesting
+  (`var {a: [b, c]} = obj;`), destructuring in `for ([a, b] in pairs)`, and the
+  assignment form (`[a, b] = f();`, `{x} = obj;`)
+- **Generic functions**: `function f<T>(x:T):T` (type parameters are erased)
+- **Map comprehensions**: `[for (k => v in map) k => v]`
+- **Wildcard imports**: `import haxe.ds.*;`
+- Untyped `catch (e)` and the bare empty statement `;`
 
 Also fixed while testing: `++`/`--` on local variables, default values for
 optional arguments, `?.` null-safe calls, and error propagation without
 `-D hscriptPos`.
+
+**Behaviour change in 1.3.0:** `case 1 | 2:` used to be parsed as the bitwise OR
+expression `(1 | 2)` and therefore never matched anything. It is now an
+or-pattern, matching Haxe. Write `case (1 | 2):` if you really mean the bitwise
+OR.
+
+## Performance
+
+1.3.0 is a profiled rewrite of the parser and interpreter. Measured with the
+bundled `bench/` harness on the eval target with `-D hscriptPos` (the engine's
+configuration); see [bench/README.md](bench/README.md) for the methodology,
+corpus and acceptance thresholds.
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| parse (TOTAL) | 26.38 ms | 22.12 ms | **-16%** |
+| execute (TOTAL) | 63.00 ms | 39.36 ms | **-38%** |
+
+Both columns are medians of seven interleaved runs that alternate between a pristine
+`git archive HEAD` checkout and the 1.3.0 tree on the same machine, so the comparison is
+like-for-like. Using the single best run of each instead gives -11% parse and -38% execute.
+
+Highlights: a substring fast path for string literals, no closure allocation in
+the tokenizer, an array-backed pending-token stack instead of per-token
+`TokenPos` objects, interned single-character tokens, a shared operator table
+instead of ~40 closures per `Interp`, and a single-instance script-class
+instantiation path instead of building a shadow parent instance and a second
+interpreter per inheritance level.
+
+Run it yourself:
+
+```powershell
+$env:BENCH_LABEL='mine'
+haxe -cp . -cp bench -D hscriptPos -D CUSTOM_CLASSES `
+  --macro "hscript.macros.UsingHandler.init()" `
+  --macro "hscript.macros.ClassExtendMacro.init()" -main Bench --interp
+$env:BENCH_COMPARE='baseline,mine'
+haxe -cp . -cp bench -D hscriptPos -D CUSTOM_CLASSES `
+  --macro "hscript.macros.UsingHandler.init()" `
+  --macro "hscript.macros.ClassExtendMacro.init()" -main Bench --interp
+```
 
 ## Runtime preprocessor (`#if`)
 
@@ -141,6 +193,15 @@ Covers: iris syntax, script classes, script-to-script inheritance, shared static
 error handlers, import callbacks, blocklist, scriptObject, redirects, `using`,
 macro-extended classes (extends engine classes), Bytes roundtrip, Printer,
 key-value for loops and the runtime `#if` preprocessor.
+Test indices are also runnable standalone, e.g.
+`-main TestConformance`, `-main TestParserSyntax`, `-main TestRuntimeExt`,
+`-main TestMacrosLegacy`, `-main TestBytesCompat`.
+Run the whole thing on Haxe 4.2.5 as well as 4.3.7 — both are supported and CI
+covers both.
+
+Benchmarks and the engine-level verification procedure are documented in
+[bench/README.md](bench/README.md); the toolchain/cache matrix is in
+[docs/COMPAT.md](docs/COMPAT.md).
 
 ## Configuration (macro scope)
 
@@ -158,15 +219,29 @@ classes instead.
 
 ## Known limitations (inherited from upstream)
 
-- `Async.hx` / `Checker.hx` already had compile issues in hscript-iris 1.1.3
-  (type mismatches under `hscriptPos`); the engine runtime does not reference them.
-  This library only applies minor fixes (EField args).
-- `using StringTools` relies on static-method reflection, which is unavailable under
-  `neko --interp` (upstream behavior); it works on native cpp targets.
-- Script-class constructor chains: with `class Child extends Parent`, parent fields
-  are re-evaluated on the child instance and the parent constructor runs only once;
-  explicit `super.new()` is not guaranteed to bind to the child instance
-  (same behavior as hscript-improved upstream).
+- `using StringTools;` (and `using` of a script class) works on the eval target as of
+  1.3.0 - verified by probe. The upstream note about static-method reflection only
+  applies to the neko target.
+- Not implemented (tracked in [docs/FEATURES.md](docs/FEATURES.md)): object spread
+  (`{...a, b: 1}`), switch array/object patterns (`case [a, b]:`, `case {x: v}:`),
+  `enum abstract`, and comma-separated `implements I, J`.
+- `hscript.Checker` static analysis is not wired into the runtime and has no test
+  coverage.
+- `hscript.Bytes` round-trips every supported construct and its format is now
+  versioned, but nothing in the engine loads a cached script yet, so the cache does
+  not currently save parse time at runtime. Decoding costs roughly a third of the
+  parse phase; see [docs/COMPAT.md](docs/COMPAT.md).
+- `import some.pkg.*;` resolves lazily: a Haxe runtime cannot enumerate a package, so a
+  mistyped package prefix is accepted by `import` and fails on first use of one of its
+  identifiers (`Unknown variable`) rather than at the `import` itself.
+- In an or-pattern, an identifier alternative is a catch-all that matches any value and is
+  tried left to right, so `case v | 5:` always matches through `v`. The guard only sees
+  bindings made by the alternative that matched, which is why
+  `case 5 | x if (x == 5):` raises `Unknown variable: x`.
+- Script classes that override a `@:deprecated` base-class member fall back to the
+  Haxe implementation; the shadow-class macro no longer generates a forwarding
+  override for deprecated members (this is what removed the engine's `WDeprecated`
+  warnings).
 
 ## License
 

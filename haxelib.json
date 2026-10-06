@@ -3,9 +3,9 @@
   "url": "https://github.com/mohong2/hscript-seiun",
   "license": "MIT",
   "description": "Super-combined HaxeScript fork for SeiunEngine: hscript-iris base + hscript-improved classes/config + hscript-plus script-class inheritance (all MIT).",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "classPath": "",
-  "releasenote": "Packages renamed from crowplexus.hscript/crowplexus.iris to hscript/hscript.iris; Haxe syntax additions and runtime fixes.",
+  "releasenote": "Profiled parser/interpreter rewrite: ~16% faster parsing and ~38% faster execution; or-patterns, guarded wildcard cases, destructuring extensions, generic functions, map comprehensions, wildcard imports, object spread; fixed script-class constructors with arguments, super.new, Math/Std/Map resolution, the ClassExtendMacro WDeprecated warnings, hscript.Bytes (versioned format), hscript.Async and eleven Printer defects.",
   "contributors": ["mohong2"],
   "dependencies": {}
 }

@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -9,8 +9,10 @@ on:
 jobs:
   test:
     strategy:
+      # The engine ships Haxe 4.2.5 and 4.3.7; "latest" guards against future
+      # regressions. Keep this list in sync with docs/COMPAT.md.
       matrix:
-        haxe-version: [latest, 4.3.7]
+        haxe-version: ["4.2.5", 4.3.7, latest]
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
@@ -26,3 +28,9 @@ jobs:
           --macro 'hscript.macros.UsingHandler.init()' \
           --macro 'hscript.macros.ClassExtendMacro.init()' \
           -main TestMain --interp
+    - name: Run Bytes/Async compatibility suite
+      run: |
+        haxe -cp . -cp test -D hscriptPos -D CUSTOM_CLASSES \
+          --macro 'hscript.macros.UsingHandler.init()' \
+          --macro 'hscript.macros.ClassExtendMacro.init()' \
+          -main TestBytesCompat --interp

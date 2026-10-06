@@ -1,4 +1,4 @@
-﻿# hscript-seiun（中文版）
+# hscript-seiun（中文版）
 
 [English](README.md) | [中文](README_zh-CN.md)
 
@@ -56,9 +56,54 @@ iris 工具放在 `hscript.iris.*`；上游 iris 的 `crowplexus` 前缀已去�
 - **类名直接访问静态成员**：`M.staticMethod()`、`S.staticVar`、`S.staticVar = 9`，
   静态字段在类声明时只求值一次
 - **switch 守卫**：`case v if (v > 3):` 会把 `v` 绑定为被 switch 的值
+- **或模式（or-pattern）**：`case 1 | 2:`、`case "a" | "b" if (cond):`（与 Haxe 4.2+ 一致）；
+  需要按位或时加括号：`case (1 | 2):`
+- **带守卫的通配 case**：`case _ if (cond):`
+- **解构扩展**：rest（`var [a, ...rest] = arr;`）、重命名（`var {x: y} = obj;`）、
+  默认值（`var {x = 1} = obj;`）、嵌套（`var {a: [b, c]} = obj;`）、
+  `for ([a, b] in pairs)`、赋值形式（`[a, b] = f();`、`{x} = obj;`）
+- **泛型函数**：`function f<T>(x:T):T`（类型参数在解析期擦除）
+- **Map 推导式**：`[for (k => v in map) k => v]`
+- **通配导入**：`import haxe.ds.*;`
+- 无类型 `catch (e)` 与空语句 `;`
 
 测试过程中还修了：局部变量 `++`/`--` 不写回、可选参数默认值、`?.` 空安全调用、
 无 `-D hscriptPos` 时错误被吞的问题。
+
+**1.3.0 行为变更：** `case 1 | 2:` 以前会被解析成按位或表达式 `(1 | 2)`，
+因此永远匹配不上；现在它是或模式（与 Haxe 一致）。确实需要按位或时请写 `case (1 | 2):`。
+
+## 性能
+
+1.3.0 对解析器与解释器做了一轮基于 profiling 的重写。数据由仓库自带 `bench/` 测试台
+在 eval 目标、`-D hscriptPos`（引擎的实际配置）下测得；方法论、语料与验收阈值见
+[bench/README.md](bench/README.md)。
+
+| | 优化前 | 优化后 | 变化 |
+| --- | --- | --- | --- |
+| 解析（合计） | 26.38 ms | 22.12 ms | **-16%** |
+| 执行（合计） | 63.00 ms | 39.36 ms | **-38%** |
+
+两列都是同一台机器上 7 组交替测量（`git archive HEAD` 的干净副本 vs 1.3.0 工作树）的中位数，
+属于同条件对比；若各自只取最好的一次，则是解析 -11%、执行 -38%。
+
+主要手段：字符串字面量走子串快速路径、词法器不再分配闭包、`-D hscriptPos` 下用数组
+栈代替每个 token 一个 `TokenPos` 对象、单字符 token 驻留复用、运算符表全局共享
+（不再为每个 `Interp` 分配约 40 个闭包）、脚本类实例化只建一个实例
+（不再每层继承各建一个影子父实例 + 解释器）。
+
+自行复现：
+
+```powershell
+$env:BENCH_LABEL='mine'
+haxe -cp . -cp bench -D hscriptPos -D CUSTOM_CLASSES `
+  --macro "hscript.macros.UsingHandler.init()" `
+  --macro "hscript.macros.ClassExtendMacro.init()" -main Bench --interp
+$env:BENCH_COMPARE='baseline,mine'
+haxe -cp . -cp bench -D hscriptPos -D CUSTOM_CLASSES `
+  --macro "hscript.macros.UsingHandler.init()" `
+  --macro "hscript.macros.ClassExtendMacro.init()" -main Bench --interp
+```
 
 ## 运行时预处理（`#if`）
 
@@ -136,12 +181,23 @@ scriptObject、redirect、using、宏扩展类（extends 引擎类）、Bytes �
 
 ## 已知限制（继承自上游）
 
-- `Async.hx` / `Checker.hx` 在 hscript-iris 1.1.3 上游就存在编译问题
-  （`hscriptPos` 下类型不匹配），引擎运行路径不引用它们；本库仅做了少量顺手修复（EField 参数）。
-- `using StringTools` 依赖静态方法反射，`neko --interp` 下不可用（上游行为），cpp 真机目标可用。
-- 脚本类构造器链：`class Child extends Parent` 时，父类字段会在子实例中重求值，
-  父构造器只会在子实例上执行一次；显式 `super.new()` 目前不保证绑定到子实例
-  （与 hscript-improved 上游行为一致）。
+- `using StringTools;`（以及 `using` 脚本类）在 1.3.0 的 eval 目标上实测可用；
+  上游关于静态方法反射的说明只对 neko 目标成立。
+- 尚未实现（见 [docs/FEATURES.md](docs/FEATURES.md)）：对象展开（`{...a, b: 1}`）、
+  switch 的数组/对象模式（`case [a, b]:`、`case {x: v}:`）、`enum abstract`、
+  以及 `implements I, J` 这种逗号分隔的接口列表。
+- `hscript.Checker` 静态分析未接入运行时，也没有测试覆盖。
+- `hscript.Bytes`（脚本缓存）现已能完整往返所有语法，格式也加了版本号；
+  但引擎目前还没有任何路径去加载缓存脚本，所以运行时还享受不到缓存带来的解析开销节省。
+  解码耗时约为解析阶段的三分之一，详见 [docs/COMPAT.md](docs/COMPAT.md)。
+- `import some.pkg.*;` 是惰性解析的：Haxe 运行时无法枚举包，因此包前缀写错时 `import`
+  本身不会报错，而是在首次使用其中某个标识符时报 `Unknown variable`。
+- 或模式里的标识符分支是"通配绑定"，从左到右优先匹配，所以 `case v | 5:` 总会通过 `v` 命中；
+  守卫只能看到真正命中的那个分支绑定的变量，因此 `case 5 | x if (x == 5):` 会报
+  `Unknown variable: x`。
+- 覆盖 `@:deprecated` 基类成员的脚本类会回退到 Haxe 实现：
+  影子类宏不再为已废弃成员生成转发 override（这正是引擎 `WDeprecated` 警告消失的原因）。
+- 裸枚举构造 `B(3)` 依旧不支持，请写 `E.B(3)`。
 
 ## License
 

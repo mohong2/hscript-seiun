@@ -1,4 +1,4 @@
-﻿package hscript.iris;
+package hscript.iris;
 
 import hscript.iris.utils.Ansi;
 import hscript.proxy.ProxyType;
@@ -233,6 +233,15 @@ class Iris {
 		parser = new Parser();
 		interp = new Interp();
 		interp.showPosOnLog = false;
+
+		// Apply the per-script blocklist. `IrisConfig.localBlocklist` used to be
+		// stored but never enforced: only the global `Iris.blocklistImports` reached
+		// the interpreter. Feed it into the interpreter's own importBlocklist.
+		if (this.config.localBlocklist != null) {
+			for (blocked in this.config.localBlocklist)
+				if (blocked != null && !interp.importBlocklist.contains(blocked))
+					interp.importBlocklist.push(blocked);
+		}
 
 		parser.allowTypes = true;
 		parser.allowMetadata = true;

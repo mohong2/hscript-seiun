@@ -1,4 +1,4 @@
-﻿/*
+/*
  * hscript-seiun functional test-suite (MIT).
  * See LICENSE and NOTICE for details.
  */
@@ -86,9 +86,30 @@ class TestMain {
 		testPreprocessor();
 		testNewSyntax();
 
+		runSuites();
+
 		trace('== RESULT: $passed passed, $failed failed ==');
 		if (failed > 0)
 			Sys.exit(1);
+	}
+
+	/**
+	 * Runs the per-workstream suites through the shared TestHarness and folds
+	 * their counters into this runner. Each suite also has its own main() for a
+	 * tighter standalone loop, so this list is the only integration point.
+	 */
+	static function runSuites() {
+		var h = new TestHarness();
+		TestConformance.run(h);
+		TestParserSyntax.run(h);
+		TestRuntimeExt.run(h);
+		TestMacrosLegacy.run(h);
+		TestBytesCompat.run(h);
+		passed += h.passed;
+		failed += h.failed;
+		trace('== SUITES: ' + h.summary() + ' ==');
+		if (h.failures.length > 0)
+			trace('== SUITE FAILURES ==\n  ' + h.failures.join("\n  "));
 	}
 
 	static function testNewSyntax() {

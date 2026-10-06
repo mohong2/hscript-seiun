@@ -1,0 +1,49 @@
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-addons/2,11,0/flixel/addons/transition/TransitionData.hx:11: characters 1-7 : Warning : (WDeprecatedEnumAbstract) `@:enum abstract` is deprecated in favor of `enum abstract`
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-addons/2,11,0/flixel/addons/transition/FlxTransitionSprite.hx:135: characters 1-7 : Warning : (WDeprecatedEnumAbstract) `@:enum abstract` is deprecated in favor of `enum abstract`
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/flixel-ui/2,4,0/flixel/addons/ui/FlxUICursor.hx:561: characters 9-11 : Warning : Potential typo detected (expected similar values are flixel.addons.ui.SortMethod.ID)
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/hscript-seiun/git/hscript/macros/ClassExtendMacro.hx:257: characters 21-32 : Warning : (WDeprecated) sound.group = myGroup is deprecated, use myGroup.add(sound)
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/hscript-seiun/git/hscript/macros/ClassExtendMacro.hx:239: characters 10-27 : Warning : (WDeprecated) Use preStateSwitch instead of stateSwitched
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/hscript-seiun/git/hscript/macros/ClassExtendMacro.hx:257: characters 15-32 : Warning : (WDeprecated) Use preStateSwitch instead of stateSwitched
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/hscript-seiun/git/hscript/macros/ClassExtendMacro.hx:239: characters 12-27 : Warning : (WDeprecated) Use postGameStart instead of gameStarted
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/hscript-seiun/git/hscript/macros/ClassExtendMacro.hx:257: characters 17-32 : Warning : (WDeprecated) Use postGameStart instead of gameStarted
+source/_online_libs/tink/http/Fetch.hx:26: characters 10-22 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/FlashClient.hx:29: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/SocketClient.hx:22: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/http/clients/StdClient.hx:19: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:408: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/StreamParser.hx:45: characters 14-26 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:717: characters 26-38 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:696: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/std/InputSource.hx:15: characters 11-23 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/io/std/OutputSink.hx:23: characters 56-68 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:593: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:448: characters 7-19 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:650: characters 12-24 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+source/_online_libs/tink/streams/Stream.hx:671: characters 11-23 : Warning : (WDeprecated) use Future.irreversible() - or better yet: new Future()
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:261: characters 17-32 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:262: characters 7-18 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:263: characters 17-29 : Warning : (WDeprecated) haxe.Utf8 is deprecated. Use UnicodeString instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:368: characters 6-32 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:376: characters 6-23 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:376: characters 27-43 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:379: characters 13-43 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:477: characters 6-24 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:477: characters 28-47 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:480: characters 11-30 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:480: characters 34-52 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:484: characters 11-29 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:489: characters 11-42 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:493: characters 11-31 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/.haxelib/tjson/1,4,0/tjson/TJSON.hx:496: characters 11-29 : Warning : (WDeprecated) Std.is is deprecated. Use Std.isOfType instead.
+Creating O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/export/release/windows/obj/obj/msvc1964-nc/__pch/haxe/hxcpp.pch...
+hxcpp.cpp
+正在编译第 1/13 组: haxe (13 个文件, 总进度 0%, 已用 0s)
+
+[█░░░░░░░░░░░░░░░░░░░░░░░] 7% 1/13 剩余 2m12s  src/flixel/system/FlxVersion.cpp
+[██████████████████████░░] 92% 12/13 剩余 1s  src/flixel/FlxGame.cpp           
+[████████████████████████] 100% 13/13 剩余 0s  src/flixel/FlxGame.cpp
+                                                                                             
+  第 1/13 组完成: 13 个文件, 总进度 100%, 已用 12s, 剩余 0s
+编译完成: 13 个文件, 用时 27s (13 组)
+  本次重新编译 13 个文件 - 完整清单: O:/FNF-PsychEngine-0.6.3/FNF-PsychEngine-0.6.3/FNF-SeiunEngine/export/release/windows/obj/obj/msvc1964-nc/compiled_files.txt
+Link: ApplicationMain.exe

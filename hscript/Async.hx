@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C)2008-2017 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -343,7 +343,7 @@ class Async {
 							case EIdent(_):
 								var id = "_r" + uid++;
 								return toCps(e2, fun(id, call(rest, [binop(op, e1, ident(id, e1), e1)], e1)), exit);
-							case EField(ef1, f):
+							case EField(ef1, f, _):
 								var id1 = "_r" + uid++;
 								var id2 = "_r" + uid++;
 								return toCps(ef1,
@@ -400,7 +400,7 @@ class Async {
 				fields.reverse();
 				for (f in fields)
 					rest = toCps(f.e, fun("_r", block([
-						binop("=", mk(EField(ident(id, f.e), f.name), f.e), ident("_r", f.e), f.e),
+						binop("=", mk(EField(ident(id, f.e), f.name, false), f.e), ident("_r", f.e), f.e),
 						rest,
 					], f.e)), exit);
 				return block([mk(EVar(id, mk(EObject([]), e)), e), rest,], e);
@@ -428,7 +428,7 @@ class Async {
 					mk(EVar(v, t), e),
 					toCps(ev, fun("_r", block([binop("=", ident(v, e), ident("_r", e), e), retNull(rest, e)], e)), exit),
 				], e);
-			case EConst(_), EIdent(_), EUnop(_), EField(_):
+			case EConst(_), EIdent(_), EUnop(_, _, _), EField(_, _, _):
 				return call(rest, [e], e);
 			case ENew(cl, args):
 				var names = [for (i in 0...args.length) "_a" + uid++];
@@ -449,7 +449,9 @@ class Async {
 					throw "Continue outside loop";
 				return block([retNull(currentLoop, e), mk(EReturn(), e)], e);
 			case ESwitch(v, cases, def):
-				var cases = [for (c in cases) {values: c.values, expr: toCps(c.expr, rest, exit)}];
+				// SwitchCase is a @:structInit class, so it must be built with an
+				// explicitly typed literal; the bare anon lost ifExpr and did not unify.
+				var cases:Array<SwitchCase> = [for (c in cases) {values: c.values, expr: toCps(c.expr, rest, exit), ifExpr: c.ifExpr}];
 				return toCps(v,
 					mk(EFunction([{name: "_c", t: null}], mk(ESwitch(ident("_c", v), cases, def == null ? retNull(rest) : toCps(def, rest, exit)), e)), e),
 					exit);

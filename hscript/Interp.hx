@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (C)2008-2017 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -67,7 +67,9 @@ class Interp {
 	public var staticVariables: Map<String, Dynamic>;
 
 	public var locals: Map<String, LocalVar>;
-	var binops: Map<String, Expr->Expr->Dynamic>;
+	// Shared across every Interp instance: the closures take the executing Interp as
+	// their first argument, so constructing an Interp allocates no per-instance op table.
+	static var binops: Map<String, Interp->Expr->Expr->Dynamic>;
 	#else
 	public var variables: Hash<Dynamic>;
 	public var imports: Hash<Dynamic>;
@@ -76,7 +78,8 @@ class Interp {
 	public var staticVariables: Hash<Dynamic>;
 
 	public var locals: Hash<LocalVar>;
-	var binops: Hash<Expr->Expr->Dynamic>;
+	// Shared across every Interp instance (see the Map branch above).
+	static var binops: Hash<Interp->Expr->Expr->Dynamic>;
 	#end
 
 	var depth: Int;
@@ -111,6 +114,8 @@ class Interp {
 	public static var setRedirects:Map<String, Dynamic->String->Dynamic->Dynamic> = [];
 
 	var __instanceFields:Array<String> = [];
+	/** Package prefixes introduced by `import some.pkg.*;` expressions. */
+	var wildcardImports:Array<String> = [];
 	var isBypassAccessor:Bool = false;
 
 	public function new() {
@@ -162,50 +167,62 @@ class Interp {
 		return cast {fileName: "hscript", lineNumber: 0};
 	}
 
+	static var binopsInitialized = false;
+
 	function initOps() {
-		var me = this;
+		// The op table depends only on the *shape* of the interpreter: every entry
+		// receives the executing Interp as its first argument, so it is built once and
+		// shared instead of allocating ~40 closures for every `new Interp()`.
+		//
+		// The table is fully populated into a local before it is published and before
+		// `binopsInitialized` is set, so a second Interp constructed concurrently can
+		// never observe a half-built table (the engine hosts threaded script classes).
+		if (binopsInitialized)
+			return;
 		#if haxe3
-		binops = new Map();
+		var table = new Map<String, Interp->Expr->Expr->Dynamic>();
 		#else
-		binops = new Hash();
+		var table = new Hash<Interp->Expr->Expr->Dynamic>();
 		#end
-		binops.set("+", function(e1, e2) return me.expr(e1) + me.expr(e2));
-		binops.set("-", function(e1, e2) return me.expr(e1) - me.expr(e2));
-		binops.set("*", function(e1, e2) return me.expr(e1) * me.expr(e2));
-		binops.set("/", function(e1, e2) return me.expr(e1) / me.expr(e2));
-		binops.set("%", function(e1, e2) return me.expr(e1) % me.expr(e2));
-		binops.set("&", function(e1, e2) return me.expr(e1) & me.expr(e2));
-		binops.set("|", function(e1, e2) return me.expr(e1) | me.expr(e2));
-		binops.set("^", function(e1, e2) return me.expr(e1) ^ me.expr(e2));
-		binops.set("<<", function(e1, e2) return me.expr(e1) << me.expr(e2));
-		binops.set(">>", function(e1, e2) return me.expr(e1) >> me.expr(e2));
-		binops.set(">>>", function(e1, e2) return me.expr(e1) >>> me.expr(e2));
-		binops.set("==", function(e1, e2) return me.expr(e1) == me.expr(e2));
-		binops.set("!=", function(e1, e2) return me.expr(e1) != me.expr(e2));
-		binops.set(">=", function(e1, e2) return me.expr(e1) >= me.expr(e2));
-		binops.set("<=", function(e1, e2) return me.expr(e1) <= me.expr(e2));
-		binops.set(">", function(e1, e2) return me.expr(e1) > me.expr(e2));
-		binops.set("<", function(e1, e2) return me.expr(e1) < me.expr(e2));
-		binops.set("||", function(e1, e2) return me.expr(e1) == true || me.expr(e2) == true);
-		binops.set("&&", function(e1, e2) return me.expr(e1) == true && me.expr(e2) == true);
-		binops.set("=", assign);
-		binops.set("??", function(e1, e2) {
-			var expr1: Dynamic = me.expr(e1);
-			return expr1 == null ? me.expr(e2) : expr1;
+		table.set("+", function(i, e1, e2) return i.expr(e1) + i.expr(e2));
+		table.set("-", function(i, e1, e2) return i.expr(e1) - i.expr(e2));
+		table.set("*", function(i, e1, e2) return i.expr(e1) * i.expr(e2));
+		table.set("/", function(i, e1, e2) return i.expr(e1) / i.expr(e2));
+		table.set("%", function(i, e1, e2) return i.expr(e1) % i.expr(e2));
+		table.set("&", function(i, e1, e2) return i.expr(e1) & i.expr(e2));
+		table.set("|", function(i, e1, e2) return i.expr(e1) | i.expr(e2));
+		table.set("^", function(i, e1, e2) return i.expr(e1) ^ i.expr(e2));
+		table.set("<<", function(i, e1, e2) return i.expr(e1) << i.expr(e2));
+		table.set(">>", function(i, e1, e2) return i.expr(e1) >> i.expr(e2));
+		table.set(">>>", function(i, e1, e2) return i.expr(e1) >>> i.expr(e2));
+		table.set("==", function(i, e1, e2) return i.expr(e1) == i.expr(e2));
+		table.set("!=", function(i, e1, e2) return i.expr(e1) != i.expr(e2));
+		table.set(">=", function(i, e1, e2) return i.expr(e1) >= i.expr(e2));
+		table.set("<=", function(i, e1, e2) return i.expr(e1) <= i.expr(e2));
+		table.set(">", function(i, e1, e2) return i.expr(e1) > i.expr(e2));
+		table.set("<", function(i, e1, e2) return i.expr(e1) < i.expr(e2));
+		table.set("||", function(i, e1, e2) return i.expr(e1) == true || i.expr(e2) == true);
+		table.set("&&", function(i, e1, e2) return i.expr(e1) == true && i.expr(e2) == true);
+		table.set("=", function(i, e1, e2) return i.assign(e1, e2));
+		table.set("??", function(i, e1, e2) {
+			var expr1: Dynamic = i.expr(e1);
+			return expr1 == null ? i.expr(e2) : expr1;
 		});
-		binops.set("...", function(e1, e2) return new InterpIterator(me, e1, e2));
-		assignOp("+=", function(v1: Dynamic, v2: Dynamic) return v1 + v2);
-		assignOp("-=", function(v1: Float, v2: Float) return v1 - v2);
-		assignOp("*=", function(v1: Float, v2: Float) return v1 * v2);
-		assignOp("/=", function(v1: Float, v2: Float) return v1 / v2);
-		assignOp("%=", function(v1: Float, v2: Float) return v1 % v2);
-		assignOp("&=", function(v1, v2) return v1 & v2);
-		assignOp("|=", function(v1, v2) return v1 | v2);
-		assignOp("^=", function(v1, v2) return v1 ^ v2);
-		assignOp("<<=", function(v1, v2) return v1 << v2);
-		assignOp(">>=", function(v1, v2) return v1 >> v2);
-		assignOp(">>>=", function(v1, v2) return v1 >>> v2);
-		assignOp("??" + "=", function(v1, v2) return v1 == null ? v2 : v1);
+		table.set("...", function(i, e1, e2) return new InterpIterator(i, e1, e2));
+		addAssignOp(table, "+=", function(v1: Dynamic, v2: Dynamic) return v1 + v2);
+		addAssignOp(table, "-=", function(v1: Float, v2: Float) return v1 - v2);
+		addAssignOp(table, "*=", function(v1: Float, v2: Float) return v1 * v2);
+		addAssignOp(table, "/=", function(v1: Float, v2: Float) return v1 / v2);
+		addAssignOp(table, "%=", function(v1: Float, v2: Float) return v1 % v2);
+		addAssignOp(table, "&=", function(v1, v2) return v1 & v2);
+		addAssignOp(table, "|=", function(v1, v2) return v1 | v2);
+		addAssignOp(table, "^=", function(v1, v2) return v1 ^ v2);
+		addAssignOp(table, "<<=", function(v1, v2) return v1 << v2);
+		addAssignOp(table, ">>=", function(v1, v2) return v1 >> v2);
+		addAssignOp(table, ">>>=", function(v1, v2) return v1 >>> v2);
+		addAssignOp(table, "??=", function(v1, v2) return v1 == null ? v2 : v1);
+		binops = table;
+		binopsInitialized = true;
 	}
 
 	public function setVar(name: String, v: Dynamic) {
@@ -277,9 +294,9 @@ class Interp {
 		return v;
 	}
 
-	function assignOp(op, fop: Dynamic->Dynamic->Dynamic) {
-		var me = this;
-		binops.set(op, function(e1, e2) return me.evalAssignOp(op, fop, e1, e2));
+	static function addAssignOp(table: #if haxe3 Map<String, Interp->Expr->Expr->Dynamic> #else Hash<Interp->Expr->Expr->Dynamic> #end,
+			op: String, fop: Dynamic->Dynamic->Dynamic) {
+		table.set(op, function(i, e1, e2) return i.evalAssignOp(op, fop, e1, e2));
 	}
 
 	function evalAssignOp(op, fop, e1, e2): Dynamic {
@@ -474,19 +491,76 @@ class Interp {
 
 	public function duplicate<T>(h: #if haxe3 Map<String, T> #else Hash<T> #end) {
 		#if haxe3
-		var h2 = new Map();
+		return cast h.copy();
 		#else
 		var h2 = new Hash();
-		#end
 		for (k in h.keys())
 			h2.set(k, h.get(k));
 		return h2;
+		#end
 	}
 
 	function restore(old: Int) {
 		while (declared.length > old) {
 			var d = declared.pop();
 			locals.set(d.n, d.old);
+		}
+	}
+
+	/**
+	 * Structural match for an enum-constructor case pattern, binding identifier
+	 * arguments (`case E.B(v):`). Compares the constructor name and parameter
+	 * count, then recurses into the parameter patterns. Script enums are built
+	 * from strings (`EEnum`), so the constructor name is the only type signature
+	 * available at runtime.
+	 */
+	static function isEnumLike(v:Dynamic):Bool {
+		return v != null && (Reflect.isEnumValue(v) || Std.isOfType(v, Tools.EnumValue));
+	}
+
+	function matchEnumPattern(callee:Expr, args:Array<Expr>, val:Dynamic):Bool {
+		var ctorName:String = switch (Tools.expr(callee)) {
+			case EField(_, f, _): f;
+			case EIdent(id): id;
+			default: null;
+		}
+		if (ctorName == null)
+			return false;
+		var params:Array<Dynamic>;
+		if (Std.isOfType(val, Tools.EnumValue)) {
+			// script enums are plain `hscript.Tools.EnumValue` objects, not Haxe
+			// enums, so `Reflect.isEnumValue` is false for them
+			var ev:Tools.EnumValue = cast val;
+			if (ev.name != ctorName)
+				return false;
+			params = ev.args;
+		} else {
+			if (Type.enumConstructor(val) != ctorName)
+				return false;
+			params = Type.enumParameters(val);
+		}
+		if (params == null)
+			params = [];
+		if (params.length != args.length)
+			return false;
+		for (i in 0...args.length)
+			if (!matchPatternArg(args[i], params[i]))
+				return false;
+		return true;
+	}
+
+	function matchPatternArg(pattern:Expr, value:Dynamic):Bool {
+		switch (Tools.expr(pattern)) {
+			case EIdent("_"):
+				return true;
+			case EIdent(id):
+				declared.push({n: id, old: locals.get(id)});
+				locals.set(id, {r: value, const: false});
+				return true;
+			case ECall(callee, args):
+				return matchEnumPattern(callee, args, value);
+			default:
+				return expr(pattern) == value;
 		}
 	}
 
@@ -517,10 +591,10 @@ class Interp {
 		if (id == null)
 			return null;
 
-		if (locals.exists(id)) {
-			var l = locals.get(id);
+		// single lookup on the hot path: a local is always a non-null struct
+		var l = locals.get(id);
+		if (l != null)
 			return l.r;
-		}
 
 		if (variables.exists(id)) {
 			var v = variables.get(id);
@@ -547,12 +621,32 @@ class Interp {
 				return Reflect.getProperty(scriptObject, 'get_$id')();
 		}
 
+		// wildcard imports: `import some.pkg.*;` makes `Ident` resolve to
+		// `some.pkg.Ident`
+		for (prefix in wildcardImports) {
+			var wildcardClass:Dynamic = getOrImportClass(prefix + "." + id);
+			if (wildcardClass != null)
+				return wildcardClass;
+		}
+
+		// last resort: a bare class / enum name. `resolve` never consulted the
+		// class registry, so scripts needed an explicit `import` just to use
+		// `Math`, `Std`, `Type`, `StringTools`, ... even though the host could
+		// resolve them. Only reached when every scope lookup above failed.
+		var cl:Dynamic = getOrImportClass(id);
+		if (cl != null)
+			return cl;
+
 		error(EUnknownVariable(id));
 
 		return null;
 	}
 
 	public function getOrImportClass(name: String): Dynamic {
+		// `Map` is an abstract: Type.resolveClass("Map") is null, yet scripts use
+		// `new Map()` routinely. A dynamic-key IMap stands in for it.
+		if (name == "Map")
+			return DynamicMap;
 		if (Iris.proxyImports.exists(name))
 			return Iris.proxyImports.get(name);
 		var c:Dynamic = Tools.getClass(name);
@@ -612,7 +706,7 @@ class Interp {
 				var fop = binops.get(op);
 				if (fop == null)
 					error(EInvalidOp(op));
-				return fop(e1, e2);
+				return fop(this, e1, e2);
 			case EUnop(op, prefix, e):
 				return switch (op) {
 					case "!":
@@ -659,7 +753,14 @@ class Interp {
 						}
 						return fcall(obj, f, args);
 					default:
-						return call(null, expr(e), args);
+						var callee:Dynamic = expr(e);
+						if (callee is CustomClassHandler.ScriptSuper) {
+							// Haxe-style `super(...)` inside a constructor: `super` is a
+							// scope, not a function, so run the parent level's own `new`.
+							var superCtor:Dynamic = cast(callee, CustomClassHandler.ScriptSuper).findMethod("new");
+							return superCtor == null ? null : call(null, superCtor, args);
+						}
+						return call(null, callee, args);
 				}
 			case EIf(econd, e1, e2):
 				return if (expr(econd) == true) expr(e1) else if (e2 == null) null else expr(e2);
@@ -683,6 +784,24 @@ class Interp {
 				final aliasStr = (as != null ? " named " + as : ""); // for errors
 				if (Iris.blocklistImports.contains(v) || importBlocklist.contains(v)) {
 					error(ECustom("You cannot add a blacklisted import, for class " + v + aliasStr));
+					return null;
+				}
+
+				// `import some.pkg.*;` is encoded by the parser as a trailing ".*" in
+				// `v` (the AST shape stays EImport(v, as)). Register the package prefix
+				// so later identifiers resolve as `prefix + "." + ident`.
+				//
+				// INTENDED BEHAVIOUR (README limitations): the prefix is NOT validated
+				// here. A Haxe runtime cannot enumerate the classes of a package, so
+				// `import does.not.exist.*;` is accepted and only fails - as a normal
+				// EUnknownVariable - if an identifier that needs it is actually used.
+				// Do not "fix" this by erroring eagerly. Pinned by TestRuntimeExt.
+				if (v != null && v.length > 2 && v.substr(v.length - 2) == ".*") {
+					var prefix = v.substr(0, v.length - 2);
+					if (prefix.length == 0)
+						return error(ECustom("Import" + aliasStr + " of class " + v + " could not be added"));
+					if (wildcardImports.indexOf(prefix) < 0)
+						wildcardImports.push(prefix);
 					return null;
 				}
 
@@ -892,29 +1011,52 @@ class Interp {
 			case ETernary(econd, e1, e2):
 				return if (expr(econd) == true) expr(e1) else expr(e2);
 			case ESwitch(e, cases, def):
+				// Frozen or-pattern / binding rules (pinned by TestRuntimeExt):
+				//  * alternatives in `c.values` are tried strictly left to right;
+				//  * an identifier alternative (`case v:`) binds the switched value
+				//    and matches ANY value, so `case v | 5:` always matches via v;
+				//  * once ONE alternative has matched, `ifExpr` is evaluated with only
+				//    that alternative's bindings in scope (e.g. `case 5 | x if (x == 5)`
+				//    raises Unknown variable: x because the literal matched first);
+				//  * bindings made by a case are restored when the case does not
+				//    match, so they never leak into later cases or the outer scope.
 				var val: Dynamic = expr(e);
 				var match = false;
 				for (c in cases) {
 					var old = declared.length;
+					var caseMatched = false;
 					for (v in c.values) {
 						var ve = Tools.expr(v);
 						var isWildcard = Type.enumEq(ve, EIdent("_"));
-						if (!isWildcard)
-							switch (ve) {
-								case EIdent(id):
-									// `case x:` binds x to the switched value
-									declared.push({n: id, old: locals.get(id)});
-									locals.set(id, {r: val, const: false});
-								default:
-							}
-						if (!isWildcard && expr(v) == val && (c.ifExpr == null || expr(c.ifExpr) == true)) {
-							match = true;
+						var valueMatched = false;
+						if (isWildcard) {
+							// A wildcard matches any value: an unguarded `case _:` was
+							// hoisted into `def` by the parser, so a wildcard in `values`
+							// is an or-pattern alternative or a guarded wildcard.
+							valueMatched = true;
+						} else switch (ve) {
+							case EIdent(id):
+								// `case x:` binds x to the switched value
+								declared.push({n: id, old: locals.get(id)});
+								locals.set(id, {r: val, const: false});
+								valueMatched = true;
+							case ECall(callee, cargs) if (isEnumLike(val)):
+								// `case E.B(v):` (and or-patterns of them): structural match
+								// that binds the constructor's parameters, instead of trying
+								// to evaluate the pattern as an expression.
+								valueMatched = matchEnumPattern(callee, cargs, val);
+							default:
+								valueMatched = expr(v) == val;
+						}
+						if (valueMatched && (c.ifExpr == null || expr(c.ifExpr) == true)) {
+							caseMatched = true;
 							break;
 						}
 					}
-					if (match) {
+					if (caseMatched) {
 						val = expr(c.expr);
 						restore(old);
+						match = true;
 						break;
 					}
 					restore(old);
@@ -1359,5 +1501,81 @@ class Interp {
 		if (c == null)
 			error(ECustom("Class not found: " + cl));
 		return (c is IHScriptCustomConstructor) ? cast(c, IHScriptCustomConstructor).hnew(args) : Type.createInstance(c, args);
+	}
+}
+
+/**
+ * Dynamic-key map used for `new Map()` inside scripts.
+ *
+ * Haxe picks a concrete `IMap` implementation from the key type, but hscript
+ * only sees the erased `ENew("Map")`, and `Type.resolveClass("Map")` is null
+ * because `Map` is an abstract. This single implementation accepts any key; keys
+ * are compared with `==` (value equality for primitives, reference for objects).
+ */
+class DynamicMap implements IMap<Dynamic, Dynamic> {
+	var keyArr:Array<Dynamic> = [];
+	var valArr:Array<Dynamic> = [];
+
+	public function new() {}
+
+	public function get(key:Dynamic):Null<Dynamic> {
+		for (i in 0...keyArr.length)
+			if (keyArr[i] == key)
+				return valArr[i];
+		return null;
+	}
+
+	public function set(key:Dynamic, value:Dynamic):Void {
+		for (i in 0...keyArr.length)
+			if (keyArr[i] == key) {
+				valArr[i] = value;
+				return;
+			}
+		keyArr.push(key);
+		valArr.push(value);
+	}
+
+	public function exists(key:Dynamic):Bool {
+		for (k in keyArr)
+			if (k == key)
+				return true;
+		return false;
+	}
+
+	public function remove(key:Dynamic):Bool {
+		for (i in 0...keyArr.length)
+			if (keyArr[i] == key) {
+				keyArr.splice(i, 1);
+				valArr.splice(i, 1);
+				return true;
+			}
+		return false;
+	}
+
+	public function clear():Void {
+		keyArr = [];
+		valArr = [];
+	}
+
+	public function keys():Iterator<Dynamic> return keyArr.iterator();
+
+	public function iterator():Iterator<Dynamic> return valArr.iterator();
+
+	public function keyValueIterator():KeyValueIterator<Dynamic, Dynamic> return new haxe.iterators.MapKeyValueIterator(this);
+
+	public function copy():IMap<Dynamic, Dynamic> {
+		var out = new DynamicMap();
+		for (i in 0...keyArr.length) {
+			out.keyArr.push(keyArr[i]);
+			out.valArr.push(valArr[i]);
+		}
+		return out;
+	}
+
+	public function toString():String {
+		var parts = [];
+		for (i in 0...keyArr.length)
+			parts.push(Std.string(keyArr[i]) + " => " + Std.string(valArr[i]));
+		return "{" + parts.join(", ") + "}";
 	}
 }
