@@ -1,3 +1,60 @@
+# 1.4.0 — diagnostics, regex, spreads, structural patterns
+
+Closes the remaining gaps in the script-language surface and turns runtime errors into
+something you can actually debug with.
+
+## New syntax
+
+- **Regex literals**: `~/[a-z]+/i` (character classes, escapes and `[a-z]` bodies are
+  handled; the flags are passed through). Desugars to `new EReg(body, flags)`, so it works on
+  every target and through the `hscript.Bytes` cache.
+- **Object spread**: `{...base, x: 1}` merges `base` first and lets later fields win. Works with
+  anonymous objects, script-class instances and `Map`s.
+- **Array spread**: `[0, ...xs, 9]` (nested and mixed with plain elements).
+- **Structural switch patterns**: `case [a, b]:`, `case [a, ...rest]:`, `case {x: v}:`,
+  `case {p: {x: v}}:`, literals and `_` compose inside them, and they work with guards and
+  or-patterns.
+- **`enum abstract`**: `enum abstract Color(Int) { var Red = 1; }` — members resolve
+  unqualified (`Red`) and through the enum name (`Color.Red`).
+- **Class type parameters**: `class Box<T> { ... }` (erased, as usual for hscript).
+
+## Diagnostics
+
+- Runtime errors now carry the **script call chain**, innermost first:
+
+      test.hx:3: Unknown variable: scroe (did you mean 'score'?)
+        at update (test.hx:3)
+        at onUpdate (test.hx:9)
+
+  `hscript.Error` gained `hint` and `stack`; `Printer.errorToString` prints both, so an
+  `errorHandler` or a `catch` sees the same text. Frames cost three array writes per script call;
+  the trace itself is only built when an error is constructed.
+- **Typo suggestions** for unknown variables, from a bounded Levenshtein search over the names that
+  are actually in scope (it stays silent when nothing is close).
+- **Parser errors say what was expected**: `Unexpected token: "{", expected ")"`.
+
+## Performance
+
+Same harness and flags as 1.3.0 (`bench/`, eval + `-D hscriptPos`), plus an hxcpp build to check
+that the wins are real on the engine target.
+
+- Binary operators no longer go through a `Map` lookup and an indirect closure call; they are a
+  direct `switch` in the interpreter (strings, assignments and `??` included).
+- Loop bodies that cannot `break`/`continue`/`return` skip the per-iteration `try`/`catch`
+  entirely. The scan is memoised per loop body and stops at nested function literals.
+- `resolve()` does one hash lookup on the hit path instead of `exists()` + `get()` for
+  variables, imports, publics, statics and script classes.
+- Compound assignments (`+=`, `??=`, ...) share one inlined operator switch instead of allocating
+  a closure per operator table entry.
+- Function calls record a stack frame with three array writes (no allocation).
+- `++`/`--` no longer allocate a `setTo` closure on every evaluation; the write-back logic is now
+  one shared `writeIdent` used by `=`, compound assignment and `++`/`--`.
+
+## Tests
+
+539 assertions in `TestMain` (was 525) plus 158 in `TestBytesCompat`, all green on Haxe 4.2.5 and
+4.3.7. The conformance matrix now reports **27/27** target constructs implemented (was 22/27).
+
 # 1.3.0 — performance, syntax and legacy repairs
 
 This release is a rewrite pass over the whole runtime: the parser and interpreter were profiled and

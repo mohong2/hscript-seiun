@@ -1,0 +1,18 @@
+{
+  "label": "v140_head",
+  "hscriptPos": true,
+  "target": "eval",
+  "totalChars": 23782,
+  "totalParseMs": 18.310341471559305,
+  "totalExecMs": 114.94686033718747,
+  "errors": [],
+  "scripts": [
+    {"name": "gameplay", "chars": 7626, "parseMs": 5.1216840744018555, "execMs": 1.2934002825008926},
+    {"name": "classheavy", "chars": 890, "parseMs": 0.56157046801423371, "execMs": 10.335040092468262},
+    {"name": "expression", "chars": 523, "parseMs": 0.50385542741910683, "execMs": 23.51231575012207},
+    {"name": "shapes", "chars": 14241, "parseMs": 11.597669124603271, "execMs": 2.1846800139456084},
+    {"name": "bench/micro/loop.hx", "chars": 202, "parseMs": 0.1792224097590876, "execMs": 28.527998924255371},
+    {"name": "bench/micro/call.hx", "chars": 191, "parseMs": 0.24753900989251112, "execMs": 26.344311237335205},
+    {"name": "bench/micro/field.hx", "chars": 109, "parseMs": 0.098800957469241335, "execMs": 22.749114036560059}
+  ]
+}

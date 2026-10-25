@@ -144,6 +144,10 @@ class Error {
 	public var pmax: Int;
 	public var origin: String;
 	public var line: Int;
+	/** Optional suggestion, for example a "did you mean" hint. */
+	public var hint: String;
+	/** Script call chain, innermost first (only set for runtime errors). */
+	public var stack: Array<String>;
 
 	public function new(e, pmin, pmax, origin, line) {
 		this.e = e;

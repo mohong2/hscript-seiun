@@ -409,7 +409,10 @@ class Printer {
 				add("{\n");
 				for (i => f in fl) {
 					add(tabs);
-					add(f.name + " : ");
+					if (f.name == Tools.OBJECT_SPREAD)
+						add("...");
+					else
+						add(f.name + " : ");
 					expr(f.e);
 					if (i < fl.length - 1)
 						add(",");
@@ -609,10 +612,18 @@ class Printer {
 			default: "Unknown Error.";
 		};
 		#if hscriptPos
-		if (showPos)
-			return e.origin + ":" + e.line + ": " + message;
-		else
-			return message;
+		var full = showPos ? e.origin + ":" + e.line + ": " + message : message;
+		if (e.hint != null)
+			full += " (" + e.hint + ")";
+		var stack = e.stack;
+		if (stack != null && stack.length > 0) {
+			var b = new StringBuf();
+			b.add(full);
+			for (s in stack)
+				b.add("\n  at " + s);
+			full = b.toString();
+		}
+		return full;
 		#else
 		return message;
 		#end

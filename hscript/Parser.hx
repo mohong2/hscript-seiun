@@ -48,6 +48,8 @@ enum Token {
 	TQuestionDot;
 	// interpolated string literal: parts are String chunks and Expr pieces
 	TInterp(parts: Array<Dynamic>);
+	// regex literal ~/pattern/flags
+	TRegex(body: String, flags: String);
 }
 
 #if hscriptPos
@@ -121,6 +123,9 @@ class Parser {
 		package name, set when using "package;" in your script.
 	 */
 	public var packageName: String = null;
+
+	/** Blocks whose statements belong to the enclosing scope (see registerSplice). */
+	var spliceBlocks: haxe.ds.ObjectMap<Dynamic, Bool>;
 
 	// access-modifier state for class/field parsing (hscript-improved style)
 	var nextIsPublic:Bool = false;
@@ -262,6 +267,13 @@ class Parser {
 		return TId(src.substring(start, end));
 	}
 
+	static function isSpreadToken(tk: Token): Bool {
+		var st = spreadToken;
+		if (st == null)
+			st = spreadToken = TOp("...");
+		return Type.enumEq(tk, st);
+	}
+
 	static function opToken(first:Int, src:String, start:Int, end:Int):Token {
 		if (end - start == 1) {
 			var a = singleOpTokens;
@@ -373,13 +385,20 @@ class Parser {
 	inline function ensure(tk) {
 		var t = token();
 		if (t != tk)
-			unexpected(t);
+			expected(t, tk);
 	}
 
 	inline function ensureToken(tk) {
 		var t = token();
 		if (!Type.enumEq(t, tk))
-			unexpected(t);
+			expected(t, tk);
+	}
+
+	/** Reports a mismatched token together with what the grammar required. */
+	function expected(got: Token, want: Token): Dynamic {
+		error(ECustom("Unexpected token: \"" + tokenString(got) + "\", expected \"" + tokenString(want) + "\""),
+			tokenMin, tokenMax);
+		return null;
 	}
 
 	function maybe(tk) {
@@ -504,7 +523,7 @@ class Parser {
 						isDestr = StringTools.startsWith(n, "__destr_");
 					default:
 				}
-				if (isDestr) {
+				if (isDestr || (spliceBlocks != null && spliceBlocks.exists(e))) {
 					exprs.pop();
 					for (x in list)
 						exprs.push(x);
@@ -744,6 +763,63 @@ class Parser {
 		}
 	}
 
+	/**
+	 * Marks an EBlock whose statements must be spliced into the enclosing
+	 * statement list (module scope) instead of forming a nested scope.
+	 */
+	function registerSplice(e: Expr): Expr {
+		if (spliceBlocks == null)
+			spliceBlocks = new haxe.ds.ObjectMap();
+		spliceBlocks.set(e, true);
+		return e;
+	}
+
+	/**
+	 * enum abstract Color(Int) { var Red = 1; var Green = 2; }
+	 *
+	 * The AST is frozen, so an enum abstract is desugared into ordinary
+	 * bindings: every member becomes a module-level var (so Red resolves
+	 * unqualified, like Haxe) and the enum name becomes an object holding the
+	 * same values (so Color.Red works too).
+	 */
+	function parseEnumAbstract(name: String, p1: Int): Expr {
+		var t = token();
+		if (t == TPOpen) {
+			if (allowTypes)
+				parseType(); // underlying type, erased
+			ensure(TPClose);
+		} else
+			push(t);
+		ensure(TBrOpen);
+		var decls: Array<Expr> = [];
+		var names: Array<String> = [];
+		while (true) {
+			var tk = token();
+			switch (tk) {
+				case TBrClose:
+					break;
+				case TSemicolon, TComma:
+					continue;
+				case TId("var"):
+					var fname = getIdent();
+					var ty: CType = maybe(TDoubleDot) ? parseType() : null;
+					ensureToken(TOp("="));
+					var v = parseExpr();
+					decls.push(mk(EVar(fname, ty, v, false, nextIsPublic, nextIsStatic), p1));
+					names.push(fname);
+				default:
+					unexpected(tk);
+			}
+		}
+		var fields: Array<ObjectDecl> = [];
+		for (n in names)
+			fields.push({name: n, e: mk(EIdent(n), p1)});
+		decls.push(mk(EVar(name, null, mk(EObject(fields), p1), false, nextIsPublic, nextIsStatic), p1));
+		nextIsPublic = false;
+		nextIsStatic = false;
+		return registerSplice(mk(EBlock(decls), p1));
+	}
+
 	// ------------------- or-patterns / comprehensions -------------------
 
 	/**
@@ -843,6 +919,23 @@ class Parser {
 			var tk = token();
 			var id = null;
 			switch (tk) {
+				case TOp(op):
+					if (op != "...")
+						unexpected(tk);
+					// Spread entry: the source object is merged first and later
+					// fields override it. A reserved field name encodes it so the
+					// frozen EObject AST shape does not change.
+					fl.push({name: Tools.OBJECT_SPREAD, e: parseExpr()});
+					var sep = token();
+					switch (sep) {
+						case TBrClose:
+							break;
+						case TComma:
+							continue;
+						default:
+							unexpected(sep);
+					}
+					break;
 				case TId(i):
 					id = i;
 				case TConst(c):
@@ -909,6 +1002,12 @@ class Parser {
 				return parseExprNext(e);
 			case TConst(c):
 				return parseExprNext(mk(EConst(c)));
+			case TRegex(body, flags):
+				// a regex literal is sugar for "new EReg(body, flags)"
+				return parseExprNext(mk(ENew("EReg", [
+					mk(EConst(CString(body)), p1, p1),
+					mk(EConst(CString(flags)), p1, p1)
+				]), p1));
 			case TPOpen:
 				tk = token();
 				if (tk == TPClose) {
@@ -948,6 +1047,12 @@ class Parser {
 				switch (tk) {
 					case TBrClose:
 						return parseExprNext(mk(EObject([]), p1));
+					case TOp(op):
+						if (op != "...")
+							unexpected(tk);
+						// object spread, for example { ...base, x: 1 }
+						push(tk);
+						return parseExprNext(parseObject(p1));
 					case TId(_):
 						var tk2 = token();
 						push(tk2);
@@ -1555,6 +1660,9 @@ class Parser {
 					case TId(id): name = id;
 					default: push(tk);
 				}
+				// class Box<T>: type parameters are a compile-time concept
+				if (name != null)
+					skipGenericParams();
 
 				var extend:String = null;
 				var interfaces:Array<String> = [];
@@ -1603,6 +1711,11 @@ class Parser {
 
 			case "enum":
 				var name = getIdent();
+				if (name == "abstract") {
+					// enum abstract Color(Int) { ... }
+					name = getIdent();
+					return parseEnumAbstract(name, p1);
+				}
 
 				ensure(TBrOpen);
 
@@ -2684,6 +2797,15 @@ class Parser {
 					invalidChar(char);
 				default:
 					if (ops[char]) {
+						if (char == "~".code) {
+							// ~/pattern/flags is a regex literal; a plain ~ is the bitwise
+							// complement operator (there is no ~= operator).
+							var afterTilde = readChar();
+							if (afterTilde == "/".code)
+								return readRegex();
+							this.char = afterTilde;
+							return opToken(char, "~", 0, 1);
+						}
 						// PERF: slice the operator out of the source instead of building it
 						// one String.fromCharCode at a time; single-character operators
 						// reuse a cached token.
@@ -2730,6 +2852,47 @@ class Parser {
 			char = readChar();
 		}
 		return null;
+	}
+
+	/**
+	 * Reads the body and flags of a regex literal. The tokenizer only reaches
+	 * here after consuming the opening tilde and slash; the parser turns the
+	 * token into a plain "new EReg(body, flags)" so the AST keeps its shape.
+	 */
+	function readRegex(): Token {
+		var start = readPos;
+		var inClass = false;
+		while (true) {
+			var c = readChar();
+			if (StringTools.isEof(c) || c == 0)
+				error(ECustom("Unterminated regular expression"), start, readPos);
+			if (c == "\\".code) {
+				readChar(); // escaped character, never a delimiter
+				continue;
+			}
+			if (c == "[".code)
+				inClass = true;
+			else if (c == "]".code)
+				inClass = false;
+			else if (c == "/".code && !inClass)
+				break;
+		}
+		var body = input.substring(start, readPos - 1);
+		var flags = new StringBuf();
+		while (true) {
+			var c = readChar();
+			if (StringTools.isEof(c) || c == 0) {
+				this.char = 0;
+				break;
+			}
+			if (idents[c]) {
+				flags.addChar(c);
+				continue;
+			}
+			this.char = c;
+			break;
+		}
+		return TRegex(body, flags.toString());
 	}
 
 	function preprocValue(id: String): Dynamic {
@@ -2913,6 +3076,7 @@ class Parser {
 			case TMeta(id): "@" + id;
 			case TPrepro(id): "#" + id;
 			case TQuestionDot: "?.";
+			case TRegex(body, flags): "~/" + body + "/" + flags;
 			case TInterp(parts): "<interp>";
 		}
 	}

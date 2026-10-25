@@ -56,6 +56,11 @@ Configuration is read from environment variables so the harness behaves identica
 | `expression` | tight numeric/bitwise loops (interpreter dispatch bound) |
 | `shapes` | many distinct small constructs (tokenizer/parser bound) |
 
+`bench/micro/` contains four minimal corpora used to isolate one interpreter path at a time:
+`loop.hx` (loop/operator dispatch), `call.hx` (script-call overhead), `field.hx` (field read/write)
+and `tiny.hx`/`empty.hx` (calibration floor). They are meant to be passed via `BENCH_FILES` when
+bisecting a change, not as a headline number.
+
 `BENCH_FILES` can add real scripts; a failed script is reported as `ERRORED` and does not abort
 the run, so a single broken corpus can never invalidate the whole measurement.
 

@@ -76,6 +76,13 @@ Packages start at `hscript`: the merged runtime lives in `hscript.*`
   assignment form (`[a, b] = f();`, `{x} = obj;`)
 - **Generic functions**: `function f<T>(x:T):T` (type parameters are erased)
 - **Map comprehensions**: `[for (k => v in map) k => v]`
+- **Regex literals**: `~/[a-z]+/i` — sugar for `new EReg(body, flags)`
+- **Object spread**: `{...base, x: 1}` (later fields win; objects, script classes and maps)
+- **Array spread**: `[0, ...xs, 9]`
+- **Structural switch patterns**: `case [a, b]:`, `case [a, ...rest]:`, `case {x: v}:`,
+  `case {p: {x: v}}:` — nestable, composable with literals, `_`, guards and or-patterns
+- **`enum abstract`**: `enum abstract Color(Int) { var Red = 1; }`; `Red` and `Color.Red` both work
+- **Class type parameters**: `class Box<T> { ... }` (erased)
 - **Wildcard imports**: `import haxe.ds.*;`
 - Untyped `catch (e)` and the bare empty statement `;`
 
@@ -88,9 +95,45 @@ expression `(1 | 2)` and therefore never matched anything. It is now an
 or-pattern, matching Haxe. Write `case (1 | 2):` if you really mean the bitwise
 OR.
 
+## Diagnostics
+
+Runtime errors carry the script call chain and, for typos, a suggestion:
+
+    test.hx:3: Unknown variable: scroe (did you mean 'score'?)
+      at update (test.hx:3)
+      at onUpdate (test.hx:9)
+
+- `hscript.Error` gained `hint` (the suggestion) and `stack` (innermost-first
+  `name (file:line)` frames); `Printer.errorToString` prints both, so an `errorHandler`
+  or a host `catch` sees the same text.
+- Frames are three array writes per script call and the trace is only materialised when an error
+  is built.
+- Parser errors say what was expected: `Unexpected token: "{", expected ")"`.
+- Unknown variables are matched against the in-scope names with a bounded Levenshtein search.
+
 ## Performance
 
-1.3.0 is a profiled rewrite of the parser and interpreter. Measured with the
+1.4.0 removes the remaining per-evaluation indirections from the interpreter loop. The host used
+here drifts by up to 25% between runs, so numbers are only meaningful when two trees are measured
+interleaved (a pristine `git archive HEAD` checkout vs this tree, alternating, same machine). One
+such pair (eval, `-D hscriptPos`, two runs each) measured **-8.9% execute** and -1.9% parse on the
+four-corpus total; a second pair taken back to back measured +6%, which is the same drift in the
+other direction. Treat 1.4.0 as performance-neutral-to-slightly-faster on this host and judge it by
+the work it removes:
+
+- binary operators: no `Map` lookup and no indirect closure call per evaluation (first-character
+  dispatch);
+- loop bodies that cannot `break`/`continue`/`return`: no per-iteration `try`/`catch` (memorised
+  scan that stops at nested function literals);
+- variable reads: one hash lookup instead of `exists()` + `get()`, for all five scopes;
+- `++`/`--`: no closure allocation per evaluation (write-back is shared with `=`);
+- script calls: one stack frame as three array writes, no allocation, and the trace is only
+  materialised when an error is built.
+
+On hxcpp (the engine target) the same corpus is neutral to faster; the call-heavy micro-corpus
+measured +0.3%, so stack traces are effectively free there.
+
+1.3.0 was the profiled rewrite that produced the large step: Measured with the
 bundled `bench/` harness on the eval target with `-D hscriptPos` (the engine's
 configuration); see [bench/README.md](bench/README.md) for the methodology,
 corpus and acceptance thresholds.
@@ -110,6 +153,9 @@ the tokenizer, an array-backed pending-token stack instead of per-token
 instead of ~40 closures per `Interp`, and a single-instance script-class
 instantiation path instead of building a shadow parent instance and a second
 interpreter per inheritance level.
+
+`bench/micro/` holds tiny targeted corpora (`loop`, `call`, `field`, `tiny`) used to isolate one
+interpreter path at a time; pass them with `BENCH_FILES` (see [bench/README.md](bench/README.md)).
 
 Run it yourself:
 

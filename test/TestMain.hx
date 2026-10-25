@@ -85,6 +85,7 @@ class TestMain {
 		testKeyValueFor();
 		testPreprocessor();
 		testNewSyntax();
+		testAdvancedSyntax();
 
 		runSuites();
 
@@ -110,6 +111,60 @@ class TestMain {
 		trace('== SUITES: ' + h.summary() + ' ==');
 		if (h.failures.length > 0)
 			trace('== SUITE FAILURES ==\n  ' + h.failures.join("\n  "));
+	}
+
+	static function errorOf(code:String):String {
+		try {
+			run(code);
+			return null;
+		} catch (e:Dynamic)
+			return Std.string(e);
+	}
+
+	/** 1.4.0 additions: regex, spreads, structural patterns, enum abstract. */
+	static function testAdvancedSyntax() {
+		var i = run('var r = ~/[a-z]+/i.match("HELLO");');
+		eq(i.variables.get("r"), true, "regex: literal matches");
+
+		i = run('var re = ~/a(b+)c/; var m = re.match("xabbbc"); var r = m ? re.matched(1) : "no";');
+		eq(i.variables.get("r"), "bbb", "regex: capture group");
+
+		i = run('var a = [1, 2]; var b = [0, ...a, 3]; var r = b.length * 10 + b[3];');
+		eq(i.variables.get("r"), 43, "spread: array literal");
+
+		i = run('var a = {x: 1, y: 2}; var b = {...a, y: 9}; var r = b.x * 10 + b.y;');
+		eq(i.variables.get("r"), 19, "spread: object literal + override");
+
+		i = run('var r = switch ([1, 2]) { case [a, b]: a + b; default: 0; };');
+		eq(i.variables.get("r"), 3, "pattern: switch array");
+
+		i = run('var r = switch ([1, 2, 3]) { case [a, ...rest]: a + rest.length; default: 0; };');
+		eq(i.variables.get("r"), 3, "pattern: switch array rest");
+
+		i = run('var r = switch ([1, 2, 3]) { case [a, b]: 9; default: 0; };');
+		eq(i.variables.get("r"), 0, "pattern: array length must match");
+
+		i = run('var o = {p: {x: 4}}; var r = switch (o) { case {p: {x: v}}: v; default: 0; };');
+		eq(i.variables.get("r"), 4, "pattern: nested object");
+
+		i = run('var r = switch ([5, 6]) { case [a, b] if (a > b): 1; case [a, b]: a * 10 + b; default: 0; };');
+		eq(i.variables.get("r"), 56, "pattern: array guard falls through");
+
+		i = run('enum abstract Color(Int) { var Red = 1; var Green = 2; } var r = cast (Red, Int) + Color.Green;');
+		eq(i.variables.get("r"), 3, "enum abstract: members + qualified access");
+
+		i = run('class Box<T> { public var v = 3; } var r = new Box().v;');
+		eq(i.variables.get("r"), 3, "class type params: erased");
+
+		var msg = errorOf('var score = 1; var x = scroe;');
+		check(msg != null && msg.indexOf("did you mean 'score'") >= 0, "diagnostics: unknown-variable suggestion");
+
+		msg = errorOf('function inner(x) return nope; function outer() return inner(3); outer();');
+		check(msg != null && msg.indexOf("at inner") >= 0 && msg.indexOf("at outer") >= 0,
+			"diagnostics: script stack trace");
+
+		msg = errorOf('if (1 > 0 { }');
+		check(msg != null && msg.indexOf("expected") >= 0, "diagnostics: expected-token message");
 	}
 
 	static function testNewSyntax() {

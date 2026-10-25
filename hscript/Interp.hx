@@ -67,9 +67,6 @@ class Interp {
 	public var staticVariables: Map<String, Dynamic>;
 
 	public var locals: Map<String, LocalVar>;
-	// Shared across every Interp instance: the closures take the executing Interp as
-	// their first argument, so constructing an Interp allocates no per-instance op table.
-	static var binops: Map<String, Interp->Expr->Expr->Dynamic>;
 	#else
 	public var variables: Hash<Dynamic>;
 	public var imports: Hash<Dynamic>;
@@ -78,12 +75,18 @@ class Interp {
 	public var staticVariables: Hash<Dynamic>;
 
 	public var locals: Hash<LocalVar>;
-	// Shared across every Interp instance (see the Map branch above).
-	static var binops: Hash<Interp->Expr->Expr->Dynamic>;
 	#end
 
 	var depth: Int;
 	var inTry: Bool;
+	// Script call chain, kept in flat arrays: pushing a frame is three array
+	// writes and an int increment, so it stays affordable on the hot call path.
+	// The trace is only materialised when an error is built.
+	static inline var MAX_TRACE = 64;
+	var traceNames: Array<String> = [];
+	var traceLines: Array<Int> = [];
+	var traceOrigins: Array<String> = [];
+	var traceDepth: Int = 0;
 	var declared: Array<DeclaredVar>;
 	var returnValue: Dynamic;
 
@@ -129,7 +132,6 @@ class Interp {
 		#end
 		declared = new Array();
 		resetVariables();
-		initOps();
 	}
 
 	private function resetVariables() {
@@ -159,6 +161,45 @@ class Interp {
 		}));
 	}
 
+	inline function pushFrame(name: String, line: Int, origin: String): Void {
+		var d = traceDepth;
+		traceDepth = d + 1;
+		if (d >= MAX_TRACE)
+			return;
+		if (d == traceNames.length) {
+			traceNames.push(name);
+			traceLines.push(line);
+			traceOrigins.push(origin);
+		} else {
+			traceNames[d] = name;
+			traceLines[d] = line;
+			traceOrigins[d] = origin;
+		}
+	}
+
+	inline function popFrame(): Void {
+		if (traceDepth > 0)
+			traceDepth--;
+	}
+
+	#if hscriptPos
+	/** Materialises the active script call chain into a thrown Error. */
+	function attachTrace(err: Error): Void {
+		var d = traceDepth;
+		if (d <= 0)
+			return;
+		var out: Array<String> = [];
+		var i = (d < MAX_TRACE ? d : MAX_TRACE) - 1;
+		// innermost frame first, like every other stack trace
+		while (i >= 0) {
+			out.push(traceNames[i] + " (" + traceOrigins[i] + ":" + traceLines[i] + ")");
+			i--;
+		}
+		if (out.length > 0)
+			err.stack = out;
+	}
+	#end
+
 	public function posInfos(): PosInfos {
 		#if hscriptPos
 		if (curExpr != null)
@@ -167,62 +208,121 @@ class Interp {
 		return cast {fileName: "hscript", lineNumber: 0};
 	}
 
-	static var binopsInitialized = false;
+	/**
+	 * Binary-operator dispatch.
+	 *
+	 * This used to be a Map<String, Interp->Expr->Expr->Dynamic> that was looked
+	 * up on every evaluation and then invoked through a dynamic closure. A direct
+	 * switch keeps exactly the same semantics (including &&/|| short-circuiting
+	 * and the ?? fallback) while removing a hash lookup plus an indirect call
+	 * from the hottest path in the interpreter.
+	 */
+	/**
+	 * Binary-operator dispatch.
+	 *
+	 * Operators used to be looked up in a Map<String, closure> and then invoked
+	 * through a dynamic call on every evaluation. A plain switch on the operator
+	 * string is not a good fit either: on hxcpp a string switch compiles to a
+	 * chain of string comparisons, so rare operators pay for every earlier case.
+	 * Dispatching on the first character first is a jump table, and the second
+	 * character (or a length check) settles the handful of collisions.
+	 */
+	function binop(op: String, e1: Expr, e2: Expr): Dynamic {
+		if (op.length == 0)
+			return error(EInvalidOp(op));
+		switch (op.charCodeAt(0)) {
+			case 43: // +
+				if (op.length == 1) return expr(e1) + expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 45: // -
+				if (op.length == 1) return expr(e1) - expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 42: // *
+				if (op.length == 1) return expr(e1) * expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 47: // /
+				if (op.length == 1) return expr(e1) / expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 37: // %
+				if (op.length == 1) return expr(e1) % expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 94: // ^
+				if (op.length == 1) return expr(e1) ^ expr(e2);
+				return evalAssignOp(op, e1, e2);
+			case 38: // &
+				if (op.length == 1) return expr(e1) & expr(e2);
+				if (op == "&&") return expr(e1) == true && expr(e2) == true;
+				return evalAssignOp(op, e1, e2);
+			case 124: // |
+				if (op.length == 1) return expr(e1) | expr(e2);
+				if (op == "||") return expr(e1) == true || expr(e2) == true;
+				return evalAssignOp(op, e1, e2);
+			case 60: // <
+				if (op.length == 1) return expr(e1) < expr(e2);
+				if (op == "<=") return expr(e1) <= expr(e2);
+				if (op == "<<") return expr(e1) << expr(e2);
+			case 62: // >
+				if (op.length == 1) return expr(e1) > expr(e2);
+				if (op == ">=") return expr(e1) >= expr(e2);
+				if (op == ">>") return expr(e1) >> expr(e2);
+				if (op == ">>>") return expr(e1) >>> expr(e2);
+			case 61: // =
+				if (op.length == 1) return assign(e1, e2);
+				if (op == "==") return expr(e1) == expr(e2);
+			case 33: // !
+				if (op == "!=") return expr(e1) != expr(e2);
+			case 63: // ?
+				if (op == "??") {
+					var v: Dynamic = expr(e1);
+					return v == null ? expr(e2) : v;
+				}
+				return evalAssignOp(op, e1, e2); // ??=
+			case 46: // .
+				if (op == "...") return new InterpIterator(this, e1, e2);
+		}
+		// remaining compound assignments: += -= *= /= %= &= |= ^= <<= >>= >>>= ??=
+		if (op.charAt(op.length - 1) != "=")
+			return error(EInvalidOp(op));
+		return evalAssignOp(op, e1, e2);
+	}
 
-	function initOps() {
-		// The op table depends only on the *shape* of the interpreter: every entry
-		// receives the executing Interp as its first argument, so it is built once and
-		// shared instead of allocating ~40 closures for every `new Interp()`.
-		//
-		// The table is fully populated into a local before it is published and before
-		// `binopsInitialized` is set, so a second Interp constructed concurrently can
-		// never observe a half-built table (the engine hosts threaded script classes).
-		if (binopsInitialized)
-			return;
-		#if haxe3
-		var table = new Map<String, Interp->Expr->Expr->Dynamic>();
-		#else
-		var table = new Hash<Interp->Expr->Expr->Dynamic>();
-		#end
-		table.set("+", function(i, e1, e2) return i.expr(e1) + i.expr(e2));
-		table.set("-", function(i, e1, e2) return i.expr(e1) - i.expr(e2));
-		table.set("*", function(i, e1, e2) return i.expr(e1) * i.expr(e2));
-		table.set("/", function(i, e1, e2) return i.expr(e1) / i.expr(e2));
-		table.set("%", function(i, e1, e2) return i.expr(e1) % i.expr(e2));
-		table.set("&", function(i, e1, e2) return i.expr(e1) & i.expr(e2));
-		table.set("|", function(i, e1, e2) return i.expr(e1) | i.expr(e2));
-		table.set("^", function(i, e1, e2) return i.expr(e1) ^ i.expr(e2));
-		table.set("<<", function(i, e1, e2) return i.expr(e1) << i.expr(e2));
-		table.set(">>", function(i, e1, e2) return i.expr(e1) >> i.expr(e2));
-		table.set(">>>", function(i, e1, e2) return i.expr(e1) >>> i.expr(e2));
-		table.set("==", function(i, e1, e2) return i.expr(e1) == i.expr(e2));
-		table.set("!=", function(i, e1, e2) return i.expr(e1) != i.expr(e2));
-		table.set(">=", function(i, e1, e2) return i.expr(e1) >= i.expr(e2));
-		table.set("<=", function(i, e1, e2) return i.expr(e1) <= i.expr(e2));
-		table.set(">", function(i, e1, e2) return i.expr(e1) > i.expr(e2));
-		table.set("<", function(i, e1, e2) return i.expr(e1) < i.expr(e2));
-		table.set("||", function(i, e1, e2) return i.expr(e1) == true || i.expr(e2) == true);
-		table.set("&&", function(i, e1, e2) return i.expr(e1) == true && i.expr(e2) == true);
-		table.set("=", function(i, e1, e2) return i.assign(e1, e2));
-		table.set("??", function(i, e1, e2) {
-			var expr1: Dynamic = i.expr(e1);
-			return expr1 == null ? i.expr(e2) : expr1;
-		});
-		table.set("...", function(i, e1, e2) return new InterpIterator(i, e1, e2));
-		addAssignOp(table, "+=", function(v1: Dynamic, v2: Dynamic) return v1 + v2);
-		addAssignOp(table, "-=", function(v1: Float, v2: Float) return v1 - v2);
-		addAssignOp(table, "*=", function(v1: Float, v2: Float) return v1 * v2);
-		addAssignOp(table, "/=", function(v1: Float, v2: Float) return v1 / v2);
-		addAssignOp(table, "%=", function(v1: Float, v2: Float) return v1 % v2);
-		addAssignOp(table, "&=", function(v1, v2) return v1 & v2);
-		addAssignOp(table, "|=", function(v1, v2) return v1 | v2);
-		addAssignOp(table, "^=", function(v1, v2) return v1 ^ v2);
-		addAssignOp(table, "<<=", function(v1, v2) return v1 << v2);
-		addAssignOp(table, ">>=", function(v1, v2) return v1 >> v2);
-		addAssignOp(table, ">>>=", function(v1, v2) return v1 >>> v2);
-		addAssignOp(table, "??=", function(v1, v2) return v1 == null ? v2 : v1);
-		binops = table;
-		binopsInitialized = true;
+	/**
+	 * Writes a value back to identifier \`id\`, whose local slot is \`l\` (null
+	 * when the name is not a local). Shared by assignment, compound assignment
+	 * and ++/-- so the routing rules live in exactly one place.
+	 */
+	function writeIdent(id: String, l: LocalVar, v: Dynamic): Void {
+		if (l == null) {
+			if (!variables.exists(id) && !staticVariables.exists(id) && !publicVariables.exists(id) && scriptObject != null) {
+				if (Type.typeof(scriptObject) == TObject) {
+					Reflect.setField(scriptObject, id, v);
+				} else {
+					if (isBypassAccessor && __instanceFields.contains(id)) {
+						Reflect.setField(scriptObject, id, v);
+					} else if (__instanceFields.contains(id)) {
+						Reflect.setProperty(scriptObject, id, v);
+					} else if (__instanceFields.contains('set_$id')) { // setter
+						Reflect.getProperty(scriptObject, 'set_$id')(v);
+					} else {
+						setVar(id, v);
+					}
+				}
+			} else {
+				if (staticVariables.exists(id)) staticVariables.set(id, v);
+				else if (publicVariables.exists(id)) publicVariables.set(id, v);
+				else setVar(id, v);
+			}
+		} else {
+			if (l.const != true) {
+				l.r = v;
+				// keep depth-0 map entries in sync so object field reads
+				// (obj.field) see the latest value
+				if (variables.exists(id)) variables.set(id, v);
+				else if (publicVariables.exists(id)) publicVariables.set(id, v);
+				else if (staticVariables.exists(id)) staticVariables.set(id, v);
+			} else
+				warn(ECustom("Cannot reassign final, for constant expression -> " + id));
+		}
 	}
 
 	public function setVar(name: String, v: Dynamic) {
@@ -238,39 +338,7 @@ class Interp {
 		var v = expr(e2);
 		switch (Tools.expr(e1)) {
 			case EIdent(id):
-				var l = locals.get(id);
-				if (l == null) {
-					if (!variables.exists(id) && !staticVariables.exists(id) && !publicVariables.exists(id) && scriptObject != null) {
-						if (Type.typeof(scriptObject) == TObject) {
-							Reflect.setField(scriptObject, id, v);
-						} else {
-							if (isBypassAccessor && __instanceFields.contains(id)) {
-								Reflect.setField(scriptObject, id, v);
-							} else if (__instanceFields.contains(id)) {
-								Reflect.setProperty(scriptObject, id, v);
-							} else if (__instanceFields.contains('set_$id')) { // setter
-								Reflect.getProperty(scriptObject, 'set_$id')(v);
-							} else {
-								setVar(id, v);
-							}
-						}
-					} else {
-						// route to whichever map already owns the variable
-						if (staticVariables.exists(id)) staticVariables.set(id, v);
-						else if (publicVariables.exists(id)) publicVariables.set(id, v);
-						else setVar(id, v);
-					}
-				} else {
-					if (l.const != true) {
-						l.r = v;
-						// keep depth-0 map entries in sync so object field reads
-						// (`obj.field`) see the latest value
-						if (variables.exists(id)) variables.set(id, v);
-						else if (publicVariables.exists(id)) publicVariables.set(id, v);
-						else if (staticVariables.exists(id)) staticVariables.set(id, v);
-					} else
-						warn(ECustom("Cannot reassign final, for constant expression -> " + id));
-				}
+				writeIdent(id, locals.get(id), v);
 			case EField(e, f, s):
 				var e = expr(e);
 				if (e == null)
@@ -294,46 +362,31 @@ class Interp {
 		return v;
 	}
 
-	static function addAssignOp(table: #if haxe3 Map<String, Interp->Expr->Expr->Dynamic> #else Hash<Interp->Expr->Expr->Dynamic> #end,
-			op: String, fop: Dynamic->Dynamic->Dynamic) {
-		table.set(op, function(i, e1, e2) return i.evalAssignOp(op, fop, e1, e2));
+	static inline function applyAssignOp(op: String, a: Dynamic, b: Dynamic): Dynamic {
+		return switch (op) {
+			case "+=": a + b;
+			case "-=": a - b;
+			case "*=": a * b;
+			case "/=": a / b;
+			case "%=": a % b;
+			case "&=": a & b;
+			case "|=": a | b;
+			case "^=": a ^ b;
+			case "<<=": a << b;
+			case ">>=": a >> b;
+			case ">>>=": a >>> b;
+			case "??=": a == null ? b : a;
+			default: a;
+		}
 	}
 
-	function evalAssignOp(op, fop, e1, e2): Dynamic {
+	function evalAssignOp(op: String, e1, e2): Dynamic {
 		var v;
 		switch (Tools.expr(e1)) {
 			case EIdent(id):
 				var l = locals.get(id);
-				v = fop(expr(e1), expr(e2));
-				if (l == null) {
-					if (!variables.exists(id) && !staticVariables.exists(id) && !publicVariables.exists(id) && scriptObject != null) {
-						if (Type.typeof(scriptObject) == TObject) {
-							Reflect.setField(scriptObject, id, v);
-						} else {
-							if (isBypassAccessor && __instanceFields.contains(id)) {
-								Reflect.setField(scriptObject, id, v);
-							} else if (__instanceFields.contains(id)) {
-								Reflect.setProperty(scriptObject, id, v);
-							} else if (__instanceFields.contains('set_$id')) { // setter
-								Reflect.getProperty(scriptObject, 'set_$id')(v);
-							} else {
-								setVar(id, v);
-							}
-						}
-					} else {
-						if (staticVariables.exists(id)) staticVariables.set(id, v);
-						else if (publicVariables.exists(id)) publicVariables.set(id, v);
-						else setVar(id, v);
-					}
-				} else {
-					if (l.const != true) {
-						l.r = v;
-						if (variables.exists(id)) variables.set(id, v);
-						else if (publicVariables.exists(id)) publicVariables.set(id, v);
-						else if (staticVariables.exists(id)) staticVariables.set(id, v);
-					} else
-						warn(ECustom("Cannot reassign final, for constant expression -> " + id));
-				}
+				v = applyAssignOp(op, (l == null) ? resolve(id) : l.r, expr(e2));
+				writeIdent(id, l, v);
 			case EField(e, f, s):
 				var obj = expr(e);
 				if (obj == null)
@@ -341,17 +394,17 @@ class Interp {
 						error(EInvalidAccess(f));
 					else
 						return null;
-				v = fop(get(obj, f), expr(e2));
+				v = applyAssignOp(op, get(obj, f), expr(e2));
 				v = set(obj, f, v);
 			case EArray(e, index):
 				var arr: Dynamic = expr(e);
-				var index: Dynamic = expr(index);
+				var key: Dynamic = expr(index);
 				if (isMap(arr)) {
-					v = fop(getMapValue(arr, index), expr(e2));
-					setMapValue(arr, index, v);
+					v = applyAssignOp(op, getMapValue(arr, key), expr(e2));
+					setMapValue(arr, key, v);
 				} else {
-					v = fop(arr[index], expr(e2));
-					arr[index] = v;
+					v = applyAssignOp(op, arr[key], expr(e2));
+					arr[key] = v;
 				}
 			default:
 				return error(EInvalidOp(op));
@@ -368,37 +421,13 @@ class Interp {
 			case EIdent(id):
 				var l = locals.get(id);
 				var v: Dynamic = (l == null) ? resolve(id) : l.r;
-				function setTo(a) {
-					if (l == null)
-						if (!variables.exists(id) && !staticVariables.exists(id) && !publicVariables.exists(id) && scriptObject != null) {
-							if (Type.typeof(scriptObject) == TObject)
-								Reflect.setField(scriptObject, id, a);
-							else if (__instanceFields.contains(id))
-								Reflect.setProperty(scriptObject, id, a);
-							else if (__instanceFields.contains('set_$id'))
-								Reflect.getProperty(scriptObject, 'set_$id')(a);
-							else
-								setVar(id, a);
-						} else {
-							if (staticVariables.exists(id)) staticVariables.set(id, a);
-							else if (publicVariables.exists(id)) publicVariables.set(id, a);
-							else setVar(id, a);
-						}
-					else {
-						if (l.const != true) {
-							l.r = a;
-							if (variables.exists(id)) variables.set(id, a);
-							else if (publicVariables.exists(id)) publicVariables.set(id, a);
-							else if (staticVariables.exists(id)) staticVariables.set(id, a);
-						} else
-							error(ECustom("Cannot reassign final, for constant expression -> " + id));
-					}
-				}
+				var stored: Dynamic;
 				if (prefix) {
 					v += delta;
-					setTo(v);
+					stored = v;
 				} else
-					setTo(v + delta);
+					stored = v + delta;
+				writeIdent(id, l, stored);
 				return v;
 			case EField(e, f, s):
 				var obj = expr(e);
@@ -442,6 +471,7 @@ class Interp {
 
 	public function execute(expr: Expr): Dynamic {
 		depth = 0;
+		traceDepth = 0;
 		#if haxe3
 		locals = new Map();
 		#else
@@ -549,6 +579,68 @@ class Interp {
 		return true;
 	}
 
+	/**
+	 * Structural match for Haxe-style switch patterns:
+	 *
+	 *   case [a, b]:        binds a and b when the array has exactly 2 elements
+	 *   case [a, ...rest]:  binds a and rest
+	 *   case {x: v}:        binds v to field x (also {x} shorthand)
+	 *   case [1, _]:        literal elements and _ wildcards compose
+	 *
+	 * Bindings are pushed to the declared stack so the enclosing case restores
+	 * them when a later alternative or guard rejects the match.
+	 */
+	function matchPattern(pattern: Expr, value: Dynamic): Bool {
+		switch (Tools.expr(pattern)) {
+			case EIdent("_"):
+				return true;
+			case EIdent(id):
+				declared.push({n: id, old: locals.get(id)});
+				locals.set(id, {r: value, const: false});
+				return true;
+			case EArrayDecl(items):
+				if (!Std.isOfType(value, Array))
+					return false;
+				var arr: Array<Dynamic> = cast value;
+				var i = 0;
+				for (item in items) {
+					switch (Tools.expr(item)) {
+						case EUnop("...", _, rest):
+							// [a, ...rest]: bind the remaining elements
+							return matchPattern(rest, arr.slice(i));
+						default:
+					}
+					if (i >= arr.length || !matchPattern(item, arr[i]))
+						return false;
+					i++;
+				}
+				return i == arr.length;
+			case EObject(fields):
+				if (value == null || !Reflect.isObject(value) || Reflect.isFunction(value))
+					return false;
+				for (f in fields)
+					if (!matchPattern(f.e, get(value, f.name)))
+						return false;
+				return true;
+			default:
+				return expr(pattern) == value;
+		}
+	}
+
+	/** Merges the fields of src into dst (object spread, see EObject). */
+	static function copyObjectFields(dst: Dynamic, src: Dynamic): Void {
+		if (src == null || dst == null)
+			return;
+		if (src is IMap) {
+			var m: IMap<Dynamic, Dynamic> = cast src;
+			for (k in m.keys())
+				Reflect.setField(dst, Std.string(k), m.get(k));
+			return;
+		}
+		for (name in Reflect.fields(src))
+			Reflect.setField(dst, name, Reflect.field(src, name));
+	}
+
 	function matchPatternArg(pattern:Expr, value:Dynamic):Bool {
 		switch (Tools.expr(pattern)) {
 			case EIdent("_"):
@@ -565,12 +657,92 @@ class Interp {
 	}
 
 	public inline function error(e: #if hscriptPos ErrorDef #else Error #end, rethrow = false): Dynamic {
-		#if hscriptPos var e = new Error(e, curExpr.pmin, curExpr.pmax, curExpr.origin, curExpr.line); #end
+		#if hscriptPos
+		var err = new Error(e, curExpr.pmin, curExpr.pmax, curExpr.origin, curExpr.line);
+		attachTrace(err);
+		if (rethrow)
+			this.rethrow(err)
+		else
+			throw err;
+		#else
 		if (rethrow)
 			this.rethrow(e)
 		else
 			throw e;
+		#end
 		return null;
+	}
+
+	#if hscriptPos
+	/** Like error(), with an extra diagnostic hint appended by the printer. */
+	function errorHint(e: ErrorDef, hint: String): Dynamic {
+		var err = new Error(e, curExpr.pmin, curExpr.pmax, curExpr.origin, curExpr.line);
+		err.hint = hint;
+		attachTrace(err);
+		throw err;
+		return null;
+	}
+	#end
+
+	// ------------------------- typo suggestions -------------------------
+
+	/** Levenshtein distance, two rolling rows (only runs on the error path). */
+	static function editDistance(a: String, b: String): Int {
+		var la = a.length, lb = b.length;
+		if (la == 0)
+			return lb;
+		if (lb == 0)
+			return la;
+		var prev: Array<Int> = [];
+		var cur: Array<Int> = [];
+		for (j in 0...lb + 1)
+			prev.push(j);
+		for (i in 1...la + 1) {
+			cur[0] = i;
+			for (j in 1...lb + 1) {
+				var cost = a.charCodeAt(i - 1) == b.charCodeAt(j - 1) ? 0 : 1;
+				var v = prev[j] + 1;
+				var ins = cur[j - 1] + 1;
+				if (ins < v)
+					v = ins;
+				var sub = prev[j - 1] + cost;
+				if (sub < v)
+					v = sub;
+				cur[j] = v;
+			}
+			var swap = prev;
+			prev = cur;
+			cur = swap;
+		}
+		return prev[lb];
+	}
+
+	/** Closest in-scope name for a typo, or null when nothing is close enough. */
+	function suggestName(id: String): String {
+		var best: String = null;
+		var bestD = 1 << 30;
+		var max = id.length <= 3 ? 1 : (id.length <= 8 ? 2 : 3);
+		for (k in variables.keys()) {
+			if (k == null || k == id || (k.length - id.length > max) || (id.length - k.length > max))
+				continue;
+			var d = editDistance(id, k);
+			if (d < bestD) {
+				bestD = d;
+				best = k;
+			}
+		}
+		for (k in locals.keys()) {
+			if (k == null || k == id || (k.length - id.length > max) || (id.length - k.length > max))
+				continue;
+			var d = editDistance(id, k);
+			if (d < bestD) {
+				bestD = d;
+				best = k;
+			}
+		}
+		if (bestD > max)
+			return null;
+		return best;
 	}
 
 	inline function warn(e: #if hscriptPos ErrorDef #else Error #end): Dynamic {
@@ -596,19 +768,28 @@ class Interp {
 		if (l != null)
 			return l.r;
 
-		if (variables.exists(id)) {
-			var v = variables.get(id);
+		// One hash lookup on the hit path: Map.get returns null for a missing
+		// key, so only a null result needs the second (exists) lookup. The old
+		// code did exists+get - two lookups - for every variable read.
+		var v = variables.get(id);
+		if (v != null || variables.exists(id))
 			return v;
-		}
 
-		if (imports.exists(id)) {
-			var v = imports.get(id);
+		v = imports.get(id);
+		if (v != null || imports.exists(id))
 			return v;
-		}
 
-		for (map in [publicVariables, staticVariables, customClasses])
-			if (map.exists(id))
-				return map.get(id);
+		v = publicVariables.get(id);
+		if (v != null || publicVariables.exists(id))
+			return v;
+
+		v = staticVariables.get(id);
+		if (v != null || staticVariables.exists(id))
+			return v;
+
+		v = customClasses.get(id);
+		if (v != null || customClasses.exists(id))
+			return v;
 
 		if (scriptObject != null) {
 			if (id == "this")
@@ -637,6 +818,11 @@ class Interp {
 		if (cl != null)
 			return cl;
 
+		#if hscriptPos
+		var suggestion = suggestName(id);
+		if (suggestion != null)
+			return errorHint(EUnknownVariable(id), "did you mean '" + suggestion + "'?");
+		#end
 		error(EUnknownVariable(id));
 
 		return null;
@@ -703,10 +889,7 @@ class Interp {
 			case EField(e, f, false):
 				return get(expr(e), f);
 			case EBinop(op, e1, e2):
-				var fop = binops.get(op);
-				if (fop == null)
-					error(EInvalidOp(op));
-				return fop(this, e1, e2);
+				return binop(op, e1, e2);
 			case EUnop(op, prefix, e):
 				return switch (op) {
 					case "!":
@@ -829,6 +1012,11 @@ class Interp {
 			case EFunction(params, fexpr, name, _, isPublic, isStatic, isOverride):
 				var capturedLocals = duplicate(locals);
 				var me = this;
+				#if hscriptPos
+				var frameOrigin = curExpr.origin;
+				var frameLine = curExpr.line;
+				#end
+				var frameName = (name == null) ? "<anonymous>" : name;
 				var hasOpt = false, minParams = 0;
 				var hasRest = false;
 				for (p in params)
@@ -886,10 +1074,16 @@ class Interp {
 					}
 					var r = null;
 					var oldDecl = declared.length;
+					#if hscriptPos
+					me.pushFrame(frameName, frameLine, frameOrigin);
+					#end
 					if (inTry)
 						try {
 							r = me.exprReturn(fexpr);
 						} catch (e:Dynamic) {
+							#if hscriptPos
+							me.popFrame();
+							#end
 							me.locals = old;
 							me.depth = depth;
 							#if neko
@@ -900,6 +1094,9 @@ class Interp {
 						}
 					else
 						r = me.exprReturn(fexpr);
+					#if hscriptPos
+					me.popFrame();
+					#end
 					restore(oldDecl);
 					me.locals = old;
 					me.depth = depth;
@@ -961,7 +1158,18 @@ class Interp {
 				} else {
 					var a = new Array();
 					for (e in arr) {
-						a.push(expr(e));
+						switch (Tools.expr(e)) {
+							case EUnop("...", _, spreadArg):
+								// array spread: [ ...xs, 1 ]
+								var sv: Dynamic = expr(spreadArg);
+								if (sv != null) {
+									var items: Array<Dynamic> = cast sv;
+									for (x in items)
+										a.push(x);
+								}
+							default:
+								a.push(expr(e));
+						}
 					}
 					return a;
 				}
@@ -983,6 +1191,7 @@ class Interp {
 			case ETry(e, n, _, ecatch):
 				var old = declared.length;
 				var oldTry = inTry;
+				var oldTrace = traceDepth;
 				try {
 					inTry = true;
 					var v: Dynamic = expr(e);
@@ -996,6 +1205,7 @@ class Interp {
 					// restore vars
 					restore(old);
 					inTry = oldTry;
+					traceDepth = oldTrace;
 					// declare 'v'
 					declared.push({n: n, old: locals.get(n)});
 					locals.set(n, {r: err, const: false});
@@ -1006,7 +1216,10 @@ class Interp {
 			case EObject(fl):
 				var o = {};
 				for (f in fl)
-					set(o, f.name, expr(f.e));
+					if (f.name == Tools.OBJECT_SPREAD)
+						copyObjectFields(o, expr(f.e));
+					else
+						set(o, f.name, expr(f.e));
 				return o;
 			case ETernary(econd, e1, e2):
 				return if (expr(econd) == true) expr(e1) else expr(e2);
@@ -1045,6 +1258,9 @@ class Interp {
 								// that binds the constructor's parameters, instead of trying
 								// to evaluate the pattern as an expression.
 								valueMatched = matchEnumPattern(callee, cargs, val);
+							case EArrayDecl(_), EObject(_):
+								// structural patterns: case [a, b]: / case {x: v}:
+								valueMatched = matchPattern(v, val);
 							default:
 								valueMatched = expr(v) == val;
 						}
@@ -1192,38 +1408,128 @@ class Interp {
 		return null;
 	}
 
+	/**
+	 * True when evaluating `e` may throw one of the control-flow signals a loop
+	 * has to intercept (`break` / `continue` / `return`). Function, class and
+	 * enum literals are their own execution unit, so a `return` inside one of
+	 * them never reaches the enclosing loop and the scan stops there.
+	 */
+	static function anySignal(list: Array<Expr>): Bool {
+		if (list == null)
+			return false;
+		for (x in list)
+			if (maySignal(x))
+				return true;
+		return false;
+	}
+
+	static function anySwitchSignal(cases: Array<SwitchCase>): Bool {
+		if (cases == null)
+			return false;
+		for (c in cases) {
+			if (anySignal(c.values) || maySignal(c.expr))
+				return true;
+			if (c.ifExpr != null && maySignal(c.ifExpr))
+				return true;
+		}
+		return false;
+	}
+
+	static function anyFieldSignal(fields: Array<ObjectDecl>): Bool {
+		if (fields == null)
+			return false;
+		for (f in fields)
+			if (maySignal(f.e))
+				return true;
+		return false;
+	}
+
+	static function maySignal(e: Null<Expr>): Bool {
+		if (e == null)
+			return false;
+		return switch (e.e) {
+			case EBreak, EContinue, EReturn(_): true;
+			case EFunction(_, _, _, _, _, _, _), EClass(_, _, _, _), EEnum(_, _): false;
+			case EConst(_), EIdent(_), EImport(_, _), EDirectValue(_), EUsing(_), EIgnore(_): false;
+			case EParent(x), EMeta(_, _, x), ECheckType(x, _), EUnop(_, _, x), EThrow(x),
+				EVar(_, _, x, _, _, _): maySignal(x);
+			case EBlock(l): anySignal(l);
+			case EField(x, _, _): maySignal(x);
+			case EBinop(_, a, b), EArray(a, b), EWhile(a, b), EDoWhile(a, b), EFor(_, a, b, _):
+				maySignal(a) || maySignal(b);
+			case ECall(callee, args): maySignal(callee) || anySignal(args);
+			case EIf(c, a, b): maySignal(c) || maySignal(a) || maySignal(b);
+			case EArrayDecl(l): anySignal(l);
+			case ENew(_, params): anySignal(params);
+			case ETry(x, _, _, c): maySignal(x) || maySignal(c);
+			case EObject(fl): anyFieldSignal(fl);
+			case ETernary(c, a, b): maySignal(c) || maySignal(a) || maySignal(b);
+			case ESwitch(x, cases, def): maySignal(x) || anySwitchSignal(cases) || maySignal(def);
+		}
+	}
+
+	// Memoised `maySignal` per body expression. The AST is shared between
+	// interpreters, so the cache must not live on the AST itself; one entry per
+	// loop body keeps it tiny.
+	var signalCache: haxe.ds.ObjectMap<Dynamic, Bool>;
+
+	inline function loopSignals(body: Expr): Bool {
+		var cache = signalCache;
+		if (cache == null)
+			cache = signalCache = new haxe.ds.ObjectMap();
+		var cached = cache.get(body);
+		if (cached != null)
+			return cached;
+		var r = maySignal(body);
+		cache.set(body, r);
+		return r;
+	}
+
 	function doWhileLoop(econd, e) {
 		var old = declared.length;
-		do {
-			try {
-				expr(e);
-			} catch (err:Stop) {
-				switch (err) {
-					case SContinue:
-					case SBreak:
-						break;
-					case SReturn:
-						throw err;
+		if (loopSignals(e)) {
+			do {
+				try {
+					expr(e);
+				} catch (err:Stop) {
+					switch (err) {
+						case SContinue:
+						case SBreak:
+							break;
+						case SReturn:
+							throw err;
+					}
 				}
-			}
-		} while (expr(econd) == true);
+			} while (expr(econd) == true);
+		} else {
+			// Nothing in the body can throw a Stop signal, so catching one per
+			// iteration is pure overhead (a setjmp per iteration on hxcpp).
+			do {
+				expr(e);
+			} while (expr(econd) == true);
+		}
 		restore(old);
 	}
 
 	function whileLoop(econd, e) {
 		var old = declared.length;
-		while (expr(econd) == true) {
-			try {
-				expr(e);
-			} catch (err:Stop) {
-				switch (err) {
-					case SContinue:
-					case SBreak:
-						break;
-					case SReturn:
-						throw err;
+		if (loopSignals(e)) {
+			while (expr(econd) == true) {
+				try {
+					expr(e);
+				} catch (err:Stop) {
+					switch (err) {
+						case SContinue:
+						case SBreak:
+							break;
+						case SReturn:
+							throw err;
+					}
 				}
 			}
+		} else {
+			while (expr(econd) == true)
+				expr(e);
 		}
 		restore(old);
 	}
@@ -1258,21 +1564,31 @@ class Interp {
 		var it = makeIterator(expr(it), isKeyValue);
 		var _itHasNext = it.hasNext;
 		var _itNext = it.next;
-		while (_itHasNext()) {
-			var next = _itNext();
-			if (isKeyValue)
-				locals.set(ithv, {r: next.key, const: false});
-			locals.set(n, {r: isKeyValue ? next.value : next, const: false});
-			try {
-				expr(e);
-			} catch (err:Stop) {
-				switch (err) {
-					case SContinue:
-					case SBreak:
-						break;
-					case SReturn:
-						throw err;
+		if (loopSignals(e)) {
+			while (_itHasNext()) {
+				var next = _itNext();
+				if (isKeyValue)
+					locals.set(ithv, {r: next.key, const: false});
+				locals.set(n, {r: isKeyValue ? next.value : next, const: false});
+				try {
+					expr(e);
+				} catch (err:Stop) {
+					switch (err) {
+						case SContinue:
+						case SBreak:
+							break;
+						case SReturn:
+							throw err;
+					}
 				}
+			}
+		} else {
+			while (_itHasNext()) {
+				var next = _itNext();
+				if (isKeyValue)
+					locals.set(ithv, {r: next.key, const: false});
+				locals.set(n, {r: isKeyValue ? next.value : next, const: false});
+				expr(e);
 			}
 		}
 		restore(old);

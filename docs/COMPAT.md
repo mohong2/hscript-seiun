@@ -48,6 +48,11 @@ start with 255 (it started with string-table marker `0` under `hscriptPos`, or w
 `ExprDef` tag in `0...31`), so old caches fail loudly instead of decoding into a corrupt
 tree. Bump `FORMAT_VERSION` whenever the layout changes.
 
+Object spread is encoded inside the frozen `EObject` shape as a field named
+`hscript.Tools.OBJECT_SPREAD` (a reserved name that no script identifier can produce), so caches
+written by 1.4.0 carry spreads without an AST change. `hscript.Error` gained `hint` and `stack`
+fields in 1.4.0; they are not part of the cache format.
+
 The frozen part of the contract is `hscript.Expr.ExprDef`: **no new variants and no arity
 changes**. Cache bytes are allowed to change; AST shape is not.
 

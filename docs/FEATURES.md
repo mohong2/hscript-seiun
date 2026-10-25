@@ -16,6 +16,7 @@ Legend: `[x]` implemented and covered by the test-suite, `[ ]` not implemented.
 ## Language / Haxe syntax
 
 - [x] Imports, import aliases (`import Foo as Bar`), packages, wildcard imports (`import haxe.ds.*;`)
+- [x] Regex literals `~/pattern/flags` (desugared to `new EReg(...)`)
 - [x] `using` keyword (registered using-entries and macro-level `IrisUsingClass`)
 - [x] `final` constants
 - [x] Enums (including constructors with arguments) and typedefs (incl. redirects)
@@ -24,7 +25,7 @@ Legend: `[x]` implemented and covered by the test-suite, `[ ]` not implemented.
 - [x] `cast` (checked `cast (x, T)` and unchecked `cast x`) and `untyped`
 - [x] Generic constructor type parameters (`new Array<Int>()`) and generic function type parameters (`function f<T>(x:T)`)
 - [x] Object shorthand (`{x}`)
-- [ ] Object spread (`{...a, b: 1}`)
+- [x] Object spread (`{...a, b: 1}`)
 - [x] Destructuring declarations: `var [a, b] = arr;`, `var {x, y} = obj;`
 - [x] Destructuring extensions: rest (`[a, ...rest]`), rename (`{x: y}`), defaults (`{x = 1}`), nesting, in `for (... in ...)`,
       and the assignment form (`[a, b] = f();`, `{x} = obj;`)
@@ -55,6 +56,13 @@ Legend: `[x]` implemented and covered by the test-suite, `[ ]` not implemented.
 - [x] `hscript.Async` type-checks and transforms (was dead code before 1.3.0)
 - [x] Haxe 4.2.5 through 4.3.7, verified in CI
 
+## Diagnostics
+
+- [x] Script call-chain stack traces on runtime errors (`Error.stack`, innermost first)
+- [x] "did you mean" suggestions for unknown variables (`Error.hint`)
+- [x] Parser errors that name the expected token
+- [x] Error positions (`origin:line`) on every runtime error
+
 ## Macro hygiene
 
 - [x] `ClassExtendMacro` skips `@:deprecated` members, so shadow classes no longer emit `WDeprecated` warnings
@@ -67,10 +75,11 @@ Legend: `[x]` implemented and covered by the test-suite, `[ ]` not implemented.
 - [ ] Object spread `{...a, b: 1}` (not Haxe syntax - a deliberate superset extension)
 - [ ] Array literal spread `[...a, 2]` (not Haxe syntax)
 - [ ] Multiple typed `catch` clauses (Haxe parity gap; a single typed or untyped catch works)
-- [ ] Class type parameters `class Box<T>` (Haxe parity gap; generic *functions* and `new X<T>()` work)
+- [x] Class type parameters `class Box<T>` (erased)
 - [ ] `interface` declarations and `implements` clauses (Haxe parity gap)
-- [ ] `abstract` declarations and `enum abstract` (Haxe parity gap)
-- [ ] Switch array/object patterns `case [a, b]:` / `case {x: v}:` (Haxe parity gap)
+- [x] `enum abstract` (members + `Color.Member`)
+- [ ] `abstract` declarations
+- [x] Switch array/object patterns `case [a, b]:` / `case {x: v}:` (incl. `...rest`, nesting, literals)
 - [ ] Sandboxing
 - [ ] Wire `hscript.Bytes` into a loader path so the cache actually saves parse time at runtime
 - [ ] `hscript.Checker` static analysis

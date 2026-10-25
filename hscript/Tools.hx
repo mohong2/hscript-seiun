@@ -25,6 +25,13 @@ package hscript;
 import hscript.Expr;
 
 class Tools {
+	/**
+	 * Reserved EObject field name the parser uses to encode an object spread
+	 * ({ ...base, x: 1 }). It is not a legal Haxe identifier, so no script can
+	 * produce it by accident.
+	 */
+	public static inline var OBJECT_SPREAD = "\u0001spread";
+
 	public static function iter(e: Expr, f: Expr->Void) {
 		switch (expr(e)) {
 			case EConst(_), EIdent(_):
